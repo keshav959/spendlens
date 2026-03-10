@@ -22,11 +22,16 @@ const api = {
   },
   register: (body) => api.request("POST", "/auth/register", body),
   login: (body) => api.request("POST", "/auth/login", body),
+  verifyOtp: (body) => api.request("POST", "/auth/verify-otp", body),
   getExpenses: (token) => api.request("GET", "/expenses", null, token),
   createExpense: (body, token) => api.request("POST", "/expenses", body, token),
   updateExpense: (id, body, token) => api.request("PUT", `/expenses/${id}`, body, token),
   deleteExpense: (id, token) => api.request("DELETE", `/expenses/${id}`, null, token),
   getDashboard: (token) => api.request("GET", "/expenses/dashboard", null, token),
+  getRecurring: (token) => api.request("GET", "/recurring", null, token),
+  createRecurring: (body, token) => api.request("POST", "/recurring", body, token),
+  updateRecurring: (id, body, token) => api.request("PUT", `/recurring/${id}`, body, token),
+  deleteRecurring: (id, token) => api.request("DELETE", `/recurring/${id}`, null, token),
 };
 
 // ===================== ICONS =====================
@@ -38,7 +43,7 @@ const icons = {
   utilities: "💡", travel: "✈", other: "📦",
   up: "↑", down: "↓", wallet: "◈", trend: "∿", count: "#",
   search: "⌕", filter: "⊟", check: "✓", user: "◉",
-  sun: "☀", moon: "☾",
+  sun: "☀", moon: "☾", repeat: "↻",
 };
 
 const categoryIcon = (cat) => icons[cat?.toLowerCase()] || icons.other;
@@ -110,6 +115,23 @@ const styles = `
   }
 
   .theme-toggle:hover { filter: brightness(1.05); }
+
+  .recurring-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .recurring-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .recurring-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  .recurring-actions { display: flex; gap: 8px; margin-top: 12px; }
 
   /* AUTH SCREEN */
   .auth-screen {
@@ -442,6 +464,9 @@ function ToastContainer({ toasts }) {
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -450,14 +475,28 @@ function AuthScreen({ onAuth }) {
     setError(""); setLoading(true);
     try {
       let data;
-      if (mode === "login") {
+      if (otpStep) {
+        data = await api.verifyOtp({ email: pendingEmail, otp });
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
+        onAuth(data);
+        setOtpStep(false);
+        setOtp("");
+        setPendingEmail("");
+      } else if (mode === "login") {
         data = await api.login({ email: form.email, password: form.password });
+        if (data.otpRequired) {
+          setOtpStep(true);
+          setPendingEmail(form.email);
+          setOtp("");
+          return;
+        }
       } else {
         data = await api.register(form);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
+        onAuth(data);
       }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
-      onAuth(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -472,31 +511,55 @@ function AuthScreen({ onAuth }) {
         <div className="auth-subtitle">Your personal finance command center</div>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handle}>
-          {mode === "register" && (
+          {otpStep && (
+            <>
+              <div className="input-group">
+                <label className="input-label">Email</label>
+                <input className="input" type="email" value={pendingEmail} disabled />
+              </div>
+              <div className="input-group">
+                <label className="input-label">OTP Code</label>
+                <input className="input" placeholder="6-digit code" value={otp}
+                  onChange={e => setOtp(e.target.value)} required />
+              </div>
+            </>
+          )}
+          {!otpStep && mode === "register" && (
             <div className="input-group">
               <label className="input-label">Full Name</label>
               <input className="input" placeholder="John Doe" value={form.name}
                 onChange={e => setForm({...form, name: e.target.value})} required />
             </div>
           )}
-          <div className="input-group">
-            <label className="input-label">Email</label>
-            <input className="input" type="email" placeholder="you@example.com" value={form.email}
-              onChange={e => setForm({...form, email: e.target.value})} required />
-          </div>
-          <div className="input-group">
-            <label className="input-label">Password</label>
-            <input className="input" type="password" placeholder="••••••••" value={form.password}
-              onChange={e => setForm({...form, password: e.target.value})} required />
-          </div>
+          {!otpStep && (
+            <>
+              <div className="input-group">
+                <label className="input-label">Email</label>
+                <input className="input" type="email" placeholder="you@example.com" value={form.email}
+                  onChange={e => setForm({...form, email: e.target.value})} required />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Password</label>
+                <input className="input" type="password" placeholder="••••••••" value={form.password}
+                  onChange={e => setForm({...form, password: e.target.value})} required />
+              </div>
+            </>
+          )}
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
+            {loading ? "Please wait..." : otpStep ? "Verify OTP" : mode === "login" ? "Sign In" : "Create Account"}
           </button>
         </form>
-        <div className="auth-switch">
-          {mode === "login" ? <>Don't have an account? <span onClick={() => setMode("register")}>Sign up</span></> :
-            <>Already have an account? <span onClick={() => setMode("login")}>Sign in</span></>}
-        </div>
+        {!otpStep && (
+          <div className="auth-switch">
+            {mode === "login" ? <>Don't have an account? <span onClick={() => setMode("register")}>Sign up</span></> :
+              <>Already have an account? <span onClick={() => setMode("login")}>Sign in</span></>}
+          </div>
+        )}
+        {otpStep && (
+          <div className="auth-switch">
+            <span onClick={() => { setOtpStep(false); setOtp(""); setPendingEmail(""); }}>Back to login</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -796,6 +859,139 @@ function ExpensesPage({ token, showToast }) {
   );
 }
 
+// ===================== RECURRING PAGE =====================
+function RecurringPage({ token, showToast }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    amount: "",
+    category: "FOOD",
+    frequency: "MONTHLY",
+    startDate: new Date().toISOString().slice(0, 10),
+  });
+  const categories = ["FOOD","TRANSPORT","HOUSING","ENTERTAINMENT","HEALTHCARE","SHOPPING","EDUCATION","UTILITIES","TRAVEL","OTHER"];
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getRecurring(token);
+      setItems(data);
+    } catch (e) { showToast(e.message, "error"); }
+    finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      await api.createRecurring({
+        ...form,
+        amount: Number(form.amount),
+      }, token);
+      showToast("Recurring expense created", "success");
+      setForm({ ...form, title: "", description: "", amount: "" });
+      load();
+    } catch (e) { showToast(e.message, "error"); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this recurring expense?")) return;
+    try {
+      await api.deleteRecurring(id, token);
+      showToast("Recurring expense deleted", "success");
+      load();
+    } catch (e) { showToast(e.message, "error"); }
+  };
+
+  const fmt = (n) => `₹${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="page-title">Recurring Expenses</div>
+        <div className="page-subtitle">Automate your monthly and weekly payments</div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="section-title">Add Recurring Expense</div>
+        <form onSubmit={handleCreate}>
+          <div className="form-grid">
+            <div className="input-group">
+              <label className="input-label">Title</label>
+              <input className="input" value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })} required />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Amount</label>
+              <input className="input" type="number" step="0.01" value={form.amount}
+                onChange={e => setForm({ ...form, amount: e.target.value })} required />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Category</label>
+              <select className="select" value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Frequency</label>
+              <select className="select" value={form.frequency}
+                onChange={e => setForm({ ...form, frequency: e.target.value })}>
+                <option value="MONTHLY">Monthly</option>
+                <option value="WEEKLY">Weekly</option>
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Start Date</label>
+              <input className="input" type="date" value={form.startDate}
+                onChange={e => setForm({ ...form, startDate: e.target.value })} required />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Description</label>
+              <input className="input" value={form.description}
+                onChange={e => setForm({ ...form, description: e.target.value })} />
+            </div>
+          </div>
+          <button className="btn btn-primary" type="submit">Create Recurring</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <div className="section-title">Your Recurring Expenses</div>
+        {loading ? <div className="loading"><div className="spinner" /></div> :
+          items.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">{icons.repeat}</div>
+              <div className="empty-text">No recurring expenses</div>
+              <div className="empty-sub">Create one to automate bills</div>
+            </div>
+          ) : (
+            <div className="recurring-grid">
+              {items.map(r => (
+                <div key={r.id} className="recurring-card">
+                  <div className="title-cell">{r.title}</div>
+                  {r.description && <div className="desc-cell">{r.description}</div>}
+                  <div className="amount-cell" style={{ marginTop: 8 }}>{fmt(r.amount)}</div>
+                  <div className="recurring-meta">Category: {r.category}</div>
+                  <div className="recurring-meta">Frequency: {r.frequency}</div>
+                  <div className="recurring-meta">Next run: {r.nextRunDate}</div>
+                  <div className="recurring-actions">
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(r.id)}>
+                      {icons.delete} Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
+    </>
+  );
+}
+
 // ===================== APP =====================
 export default function App() {
   const [auth, setAuth] = useState(() => {
@@ -853,6 +1049,7 @@ export default function App() {
           {[
             { id: "dashboard", label: "Dashboard", icon: icons.dashboard },
             { id: "expenses", label: "Expenses", icon: icons.expenses },
+            { id: "recurring", label: "Recurring", icon: icons.repeat },
           ].map(item => (
             <div key={item.id} className={`nav-item ${page === item.id ? "active" : ""}`} onClick={() => setPage(item.id)}>
               <span className="nav-icon">{item.icon}</span> {item.label}
@@ -869,6 +1066,7 @@ export default function App() {
         <main className="main">
           {page === "dashboard" && <Dashboard token={auth.token} />}
           {page === "expenses" && <ExpensesPage token={auth.token} showToast={showToast} />}
+          {page === "recurring" && <RecurringPage token={auth.token} showToast={showToast} />}
         </main>
       </div>
       <ToastContainer toasts={toasts} />

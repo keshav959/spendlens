@@ -24,17 +24,26 @@ public class User {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "otp_code_hash")
+    private String otpCodeHash;
+
+    @Column(name = "otp_expiry")
+    private LocalDateTime otpExpiry;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Expense> expenses;
 
     public User() {}
 
-    public User(Long id, String name, String email, String password, LocalDateTime createdAt, List<Expense> expenses) {
+    public User(Long id, String name, String email, String password, LocalDateTime createdAt, String otpCodeHash,
+                LocalDateTime otpExpiry, List<Expense> expenses) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.password = password;
         this.createdAt = createdAt;
+        this.otpCodeHash = otpCodeHash;
+        this.otpExpiry = otpExpiry;
         this.expenses = expenses;
     }
 
@@ -82,6 +91,22 @@ public class User {
         this.createdAt = createdAt;
     }
 
+    public String getOtpCodeHash() {
+        return otpCodeHash;
+    }
+
+    public void setOtpCodeHash(String otpCodeHash) {
+        this.otpCodeHash = otpCodeHash;
+    }
+
+    public LocalDateTime getOtpExpiry() {
+        return otpExpiry;
+    }
+
+    public void setOtpExpiry(LocalDateTime otpExpiry) {
+        this.otpExpiry = otpExpiry;
+    }
+
     public List<Expense> getExpenses() {
         return expenses;
     }
@@ -101,6 +126,8 @@ public class User {
         private String email;
         private String password;
         private LocalDateTime createdAt;
+        private String otpCodeHash;
+        private LocalDateTime otpExpiry;
         private List<Expense> expenses;
 
         public Builder id(Long id) {
@@ -128,13 +155,23 @@ public class User {
             return this;
         }
 
+        public Builder otpCodeHash(String otpCodeHash) {
+            this.otpCodeHash = otpCodeHash;
+            return this;
+        }
+
+        public Builder otpExpiry(LocalDateTime otpExpiry) {
+            this.otpExpiry = otpExpiry;
+            return this;
+        }
+
         public Builder expenses(List<Expense> expenses) {
             this.expenses = expenses;
             return this;
         }
 
         public User build() {
-            return new User(id, name, email, password, createdAt, expenses);
+            return new User(id, name, email, password, createdAt, otpCodeHash, otpExpiry, expenses);
         }
     }
 }

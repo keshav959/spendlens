@@ -22,8 +22,14 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request);
+    public ResponseEntity<ApiResponse<LoginStepResponse>> login(@Valid @RequestBody LoginRequest request) {
+        LoginStepResponse response = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.success("OTP sent to email", response));
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        AuthResponse response = authService.verifyOtp(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
     }
 }

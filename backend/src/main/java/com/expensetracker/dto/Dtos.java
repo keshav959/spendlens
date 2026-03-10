@@ -87,6 +87,56 @@ public class Dtos {
         }
     }
 
+    public static class LoginStepResponse {
+        private boolean otpRequired;
+
+        public LoginStepResponse() {}
+
+        public LoginStepResponse(boolean otpRequired) {
+            this.otpRequired = otpRequired;
+        }
+
+        public boolean isOtpRequired() {
+            return otpRequired;
+        }
+
+        public void setOtpRequired(boolean otpRequired) {
+            this.otpRequired = otpRequired;
+        }
+    }
+
+    public static class VerifyOtpRequest {
+        @NotBlank(message = "Email is required")
+        @Email
+        private String email;
+
+        @NotBlank(message = "OTP is required")
+        private String otp;
+
+        public VerifyOtpRequest() {}
+
+        public VerifyOtpRequest(String email, String otp) {
+            this.email = email;
+            this.otp = otp;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getOtp() {
+            return otp;
+        }
+
+        public void setOtp(String otp) {
+            this.otp = otp;
+        }
+    }
+
     public static class AuthResponse {
         private String token;
         private String type = "Bearer";
@@ -405,6 +455,175 @@ public class Dtos {
             public ExpenseResponse build() {
                 return new ExpenseResponse(id, title, description, amount, category, expenseDate, createdAt, updatedAt);
             }
+        }
+    }
+
+    public static class RecurringRequest {
+        @NotBlank(message = "Title is required")
+        private String title;
+
+        private String description;
+
+        @NotNull(message = "Amount is required")
+        @DecimalMin(value = "0.01", message = "Amount must be positive")
+        private BigDecimal amount;
+
+        @NotNull(message = "Category is required")
+        private Category category;
+
+        @NotNull(message = "Frequency is required")
+        private String frequency; // WEEKLY or MONTHLY
+
+        @NotNull(message = "Start date is required")
+        private LocalDate startDate;
+
+        public RecurringRequest() {}
+
+        public RecurringRequest(String title, String description, BigDecimal amount, Category category,
+                                String frequency, LocalDate startDate) {
+            this.title = title;
+            this.description = description;
+            this.amount = amount;
+            this.category = category;
+            this.frequency = frequency;
+            this.startDate = startDate;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public void setAmount(BigDecimal amount) {
+            this.amount = amount;
+        }
+
+        public Category getCategory() {
+            return category;
+        }
+
+        public void setCategory(Category category) {
+            this.category = category;
+        }
+
+        public String getFrequency() {
+            return frequency;
+        }
+
+        public void setFrequency(String frequency) {
+            this.frequency = frequency;
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+
+        public void setStartDate(LocalDate startDate) {
+            this.startDate = startDate;
+        }
+    }
+
+    public static class RecurringResponse {
+        private Long id;
+        private String title;
+        private String description;
+        private BigDecimal amount;
+        private Category category;
+        private String frequency;
+        private LocalDate nextRunDate;
+        private boolean active;
+
+        public RecurringResponse() {}
+
+        public RecurringResponse(Long id, String title, String description, BigDecimal amount, Category category,
+                                 String frequency, LocalDate nextRunDate, boolean active) {
+            this.id = id;
+            this.title = title;
+            this.description = description;
+            this.amount = amount;
+            this.category = category;
+            this.frequency = frequency;
+            this.nextRunDate = nextRunDate;
+            this.active = active;
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public void setAmount(BigDecimal amount) {
+            this.amount = amount;
+        }
+
+        public Category getCategory() {
+            return category;
+        }
+
+        public void setCategory(Category category) {
+            this.category = category;
+        }
+
+        public String getFrequency() {
+            return frequency;
+        }
+
+        public void setFrequency(String frequency) {
+            this.frequency = frequency;
+        }
+
+        public LocalDate getNextRunDate() {
+            return nextRunDate;
+        }
+
+        public void setNextRunDate(LocalDate nextRunDate) {
+            this.nextRunDate = nextRunDate;
+        }
+
+        public boolean isActive() {
+            return active;
+        }
+
+        public void setActive(boolean active) {
+            this.active = active;
         }
     }
 
