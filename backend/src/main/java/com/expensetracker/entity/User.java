@@ -18,6 +18,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(unique = true)
+    private String phone;
+
     @Column(nullable = false)
     private String password;
 
@@ -35,11 +38,12 @@ public class User {
 
     public User() {}
 
-    public User(Long id, String name, String email, String password, LocalDateTime createdAt, String otpCodeHash,
-                LocalDateTime otpExpiry, List<Expense> expenses) {
+    public User(Long id, String name, String email, String phone, String password, LocalDateTime createdAt,
+                String otpCodeHash, LocalDateTime otpExpiry, List<Expense> expenses) {
         this.id = id;
         this.name = name;
         this.email = email;
+        this.phone = phone;
         this.password = password;
         this.createdAt = createdAt;
         this.otpCodeHash = otpCodeHash;
@@ -73,6 +77,14 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getPassword() {
@@ -124,6 +136,7 @@ public class User {
         private Long id;
         private String name;
         private String email;
+        private String phone;
         private String password;
         private LocalDateTime createdAt;
         private String otpCodeHash;
@@ -142,6 +155,11 @@ public class User {
 
         public Builder email(String email) {
             this.email = email;
+            return this;
+        }
+
+        public Builder phone(String phone) {
+            this.phone = phone;
             return this;
         }
 
@@ -171,7 +189,7 @@ public class User {
         }
 
         public User build() {
-            return new User(id, name, email, password, createdAt, otpCodeHash, otpExpiry, expenses);
+            return new User(id, name, email, phone, password, createdAt, otpCodeHash, otpExpiry, expenses);
         }
     }
 }

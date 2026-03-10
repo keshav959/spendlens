@@ -23,6 +23,9 @@ const api = {
   register: (body) => api.request("POST", "/auth/register", body),
   login: (body) => api.request("POST", "/auth/login", body),
   verifyOtp: (body) => api.request("POST", "/auth/verify-otp", body),
+  forgotPassword: (body) => api.request("POST", "/auth/forgot-password", body),
+  resetPassword: (body) => api.request("POST", "/auth/reset-password", body),
+  setPhone: (body) => api.request("POST", "/auth/set-phone", body),
   getExpenses: (token) => api.request("GET", "/expenses", null, token),
   createExpense: (body, token) => api.request("POST", "/expenses", body, token),
   updateExpense: (id, body, token) => api.request("PUT", `/expenses/${id}`, body, token),
@@ -463,10 +466,13 @@ function ToastContainer({ toasts }) {
 // ===================== AUTH SCREENS =====================
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPhone, setPendingPhone] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -476,18 +482,54 @@ function AuthScreen({ onAuth }) {
     try {
       let data;
       if (otpStep) {
-        data = await api.verifyOtp({ email: pendingEmail, otp });
+        data = await api.verifyOtp({ email: pendingEmail || null, phone: pendingPhone || null, otp });
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
         onAuth(data);
         setOtpStep(false);
         setOtp("");
         setPendingEmail("");
-      } else if (mode === "login") {
-        data = await api.login({ email: form.email, password: form.password });
+        setNewPassword("");
+        setPendingPassword("");
+      } else if (mode === "forgot") {
+        await api.forgotPassword({ email: form.email || null, phone: form.phone || null });
+        setPendingEmail(form.email || "");
+        setPendingPhone(form.phone || "");
+        setMode("reset");
+        setOtp("");
+        setNewPassword("");
+        return;
+      } else if (mode === "addPhone") {
+        data = await api.setPhone({ email: pendingEmail || null, phone: form.phone, password: pendingPassword });
         if (data.otpRequired) {
           setOtpStep(true);
-          setPendingEmail(form.email);
+          setPendingPhone(form.phone || "");
+          setOtp("");
+          return;
+        }
+      } else if (mode === "reset") {
+        data = await api.resetPassword({ email: pendingEmail || null, phone: pendingPhone || null, otp, newPassword });
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
+        onAuth(data);
+        setMode("login");
+        setOtp("");
+        setNewPassword("");
+        setPendingEmail("");
+        setPendingPhone("");
+        setPendingPassword("");
+      } else if (mode === "login") {
+        data = await api.login({ email: form.email || null, phone: form.phone || null, password: form.password });
+        if (data.phoneRequired) {
+          setMode("addPhone");
+          setPendingEmail(form.email || "");
+          setPendingPassword(form.password);
+          return;
+        }
+        if (data.otpRequired) {
+          setOtpStep(true);
+          setPendingEmail(form.email || "");
+          setPendingPhone(form.phone || "");
           setOtp("");
           return;
         }
@@ -511,19 +553,27 @@ function AuthScreen({ onAuth }) {
         <div className="auth-subtitle">Your personal finance command center</div>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handle}>
-          {otpStep && (
-            <>
-              <div className="input-group">
-                <label className="input-label">Email</label>
-                <input className="input" type="email" value={pendingEmail} disabled />
-              </div>
+        {otpStep && (
+          <>
+              {pendingEmail && (
+                <div className="input-group">
+                  <label className="input-label">Email</label>
+                  <input className="input" type="email" value={pendingEmail} disabled />
+                </div>
+              )}
+              {pendingPhone && (
+                <div className="input-group">
+                  <label className="input-label">Phone</label>
+                  <input className="input" value={pendingPhone} disabled />
+                </div>
+              )}
               <div className="input-group">
                 <label className="input-label">OTP Code</label>
                 <input className="input" placeholder="6-digit code" value={otp}
                   onChange={e => setOtp(e.target.value)} required />
               </div>
-            </>
-          )}
+          </>
+        )}
           {!otpStep && mode === "register" && (
             <div className="input-group">
               <label className="input-label">Full Name</label>
@@ -531,33 +581,96 @@ function AuthScreen({ onAuth }) {
                 onChange={e => setForm({...form, name: e.target.value})} required />
             </div>
           )}
+          {!otpStep && mode === "register" && (
+            <div className="input-group">
+              <label className="input-label">Phone (E.164)</label>
+              <input className="input" placeholder="+91XXXXXXXXXX" value={form.phone}
+                onChange={e => setForm({...form, phone: e.target.value})} required />
+            </div>
+          )}
           {!otpStep && (
             <>
-              <div className="input-group">
-                <label className="input-label">Email</label>
-                <input className="input" type="email" placeholder="you@example.com" value={form.email}
-                  onChange={e => setForm({...form, email: e.target.value})} required />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Password</label>
-                <input className="input" type="password" placeholder="••••••••" value={form.password}
-                  onChange={e => setForm({...form, password: e.target.value})} required />
-              </div>
+              {(mode === "login" || mode === "register" || mode === "forgot") && (
+                <div className="input-group">
+                  <label className="input-label">Email</label>
+                  <input className="input" type="email" placeholder="you@example.com" value={form.email}
+                    onChange={e => setForm({...form, email: e.target.value})} />
+                </div>
+              )}
+              {(mode === "login" || mode === "forgot" || mode === "addPhone") && (
+                <div className="input-group">
+                  <label className="input-label">{mode === "addPhone" ? "Phone (E.164)" : "Phone (optional)"}</label>
+                  <input className="input" placeholder="+91XXXXXXXXXX" value={form.phone}
+                    onChange={e => setForm({...form, phone: e.target.value})} required={mode === "addPhone"} />
+                </div>
+              )}
+              {mode === "addPhone" && (
+                <div className="input-group">
+                  <label className="input-label">Email</label>
+                  <input className="input" type="email" value={pendingEmail} disabled />
+                </div>
+              )}
+              {mode === "reset" && (
+                <div className="input-group">
+                  <label className="input-label">Email</label>
+                  <input className="input" type="email" value={pendingEmail} disabled />
+                </div>
+              )}
+              {mode === "reset" && pendingPhone && (
+                <div className="input-group">
+                  <label className="input-label">Phone</label>
+                  <input className="input" value={pendingPhone} disabled />
+                </div>
+              )}
+              {(mode === "login" || mode === "register") && (
+                <div className="input-group">
+                  <label className="input-label">Password</label>
+                  <input className="input" type="password" placeholder="••••••••" value={form.password}
+                    onChange={e => setForm({...form, password: e.target.value})} required />
+                </div>
+              )}
+              {mode === "reset" && (
+                <div className="input-group">
+                  <label className="input-label">OTP Code</label>
+                  <input className="input" placeholder="6-digit code" value={otp}
+                    onChange={e => setOtp(e.target.value)} required />
+                </div>
+              )}
+              {mode === "reset" && (
+                <div className="input-group">
+                  <label className="input-label">New Password</label>
+                  <input className="input" type="password" placeholder="••••••••" value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)} required />
+                </div>
+              )}
             </>
           )}
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Please wait..." : otpStep ? "Verify OTP" : mode === "login" ? "Sign In" : "Create Account"}
+            {loading ? "Please wait..." : otpStep ? "Verify OTP" :
+              mode === "login" ? "Sign In" :
+              mode === "register" ? "Create Account" :
+              mode === "forgot" ? "Send OTP" :
+              mode === "addPhone" ? "Save Phone" :
+              "Reset Password"}
           </button>
         </form>
         {!otpStep && (
           <div className="auth-switch">
-            {mode === "login" ? <>Don't have an account? <span onClick={() => setMode("register")}>Sign up</span></> :
-              <>Already have an account? <span onClick={() => setMode("login")}>Sign in</span></>}
+            {mode === "login" && (
+              <>
+                Don't have an account? <span onClick={() => setMode("register")}>Sign up</span>
+                <span style={{ marginLeft: 12 }} onClick={() => setMode("forgot")}>Forgot password?</span>
+              </>
+            )}
+            {mode === "register" && <>Already have an account? <span onClick={() => setMode("login")}>Sign in</span></>}
+            {mode === "forgot" && <>Remembered it? <span onClick={() => setMode("login")}>Sign in</span></>}
+            {mode === "reset" && <>Back to login? <span onClick={() => setMode("login")}>Sign in</span></>}
+            {mode === "addPhone" && <>Back to login? <span onClick={() => setMode("login")}>Sign in</span></>}
           </div>
         )}
         {otpStep && (
           <div className="auth-switch">
-            <span onClick={() => { setOtpStep(false); setOtp(""); setPendingEmail(""); }}>Back to login</span>
+            <span onClick={() => { setOtpStep(false); setOtp(""); setPendingEmail(""); setPendingPhone(""); }}>Back to login</span>
           </div>
         )}
       </div>

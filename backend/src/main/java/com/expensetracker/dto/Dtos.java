@@ -18,15 +18,20 @@ public class Dtos {
         @Email(message = "Invalid email format")
         private String email;
 
+        @NotBlank(message = "Phone is required")
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
+        private String phone;
+
         @NotBlank(message = "Password is required")
         @Size(min = 6, message = "Password must be at least 6 characters")
         private String password;
 
         public RegisterRequest() {}
 
-        public RegisterRequest(String name, String email, String password) {
+        public RegisterRequest(String name, String email, String phone, String password) {
             this.name = name;
             this.email = email;
+            this.phone = phone;
             this.password = password;
         }
 
@@ -46,6 +51,14 @@ public class Dtos {
             this.email = email;
         }
 
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
         public String getPassword() {
             return password;
         }
@@ -56,17 +69,20 @@ public class Dtos {
     }
 
     public static class LoginRequest {
-        @NotBlank(message = "Email is required")
-        @Email
+        @Email(message = "Invalid email format")
         private String email;
+
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
+        private String phone;
 
         @NotBlank(message = "Password is required")
         private String password;
 
         public LoginRequest() {}
 
-        public LoginRequest(String email, String password) {
+        public LoginRequest(String email, String phone, String password) {
             this.email = email;
+            this.phone = phone;
             this.password = password;
         }
 
@@ -76,6 +92,14 @@ public class Dtos {
 
         public void setEmail(String email) {
             this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
         }
 
         public String getPassword() {
@@ -89,11 +113,17 @@ public class Dtos {
 
     public static class LoginStepResponse {
         private boolean otpRequired;
+        private boolean phoneRequired;
 
         public LoginStepResponse() {}
 
         public LoginStepResponse(boolean otpRequired) {
             this.otpRequired = otpRequired;
+        }
+
+        public LoginStepResponse(boolean otpRequired, boolean phoneRequired) {
+            this.otpRequired = otpRequired;
+            this.phoneRequired = phoneRequired;
         }
 
         public boolean isOtpRequired() {
@@ -103,20 +133,30 @@ public class Dtos {
         public void setOtpRequired(boolean otpRequired) {
             this.otpRequired = otpRequired;
         }
+
+        public boolean isPhoneRequired() {
+            return phoneRequired;
+        }
+
+        public void setPhoneRequired(boolean phoneRequired) {
+            this.phoneRequired = phoneRequired;
+        }
     }
 
     public static class VerifyOtpRequest {
-        @NotBlank(message = "Email is required")
-        @Email
         private String email;
+
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
+        private String phone;
 
         @NotBlank(message = "OTP is required")
         private String otp;
 
         public VerifyOtpRequest() {}
 
-        public VerifyOtpRequest(String email, String otp) {
+        public VerifyOtpRequest(String email, String phone, String otp) {
             this.email = email;
+            this.phone = phone;
             this.otp = otp;
         }
 
@@ -128,12 +168,148 @@ public class Dtos {
             this.email = email;
         }
 
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
         public String getOtp() {
             return otp;
         }
 
         public void setOtp(String otp) {
             this.otp = otp;
+        }
+    }
+
+    public static class ForgotPasswordRequest {
+        private String email;
+
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
+        private String phone;
+
+        public ForgotPasswordRequest() {}
+
+        public ForgotPasswordRequest(String email, String phone) {
+            this.email = email;
+            this.phone = phone;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+    }
+
+    public static class ResetPasswordRequest {
+        private String email;
+
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
+        private String phone;
+
+        @NotBlank(message = "OTP is required")
+        private String otp;
+
+        @NotBlank(message = "New password is required")
+        @Size(min = 6, message = "Password must be at least 6 characters")
+        private String newPassword;
+
+        public ResetPasswordRequest() {}
+
+        public ResetPasswordRequest(String email, String phone, String otp, String newPassword) {
+            this.email = email;
+            this.phone = phone;
+            this.otp = otp;
+            this.newPassword = newPassword;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
+        public String getOtp() {
+            return otp;
+        }
+
+        public void setOtp(String otp) {
+            this.otp = otp;
+        }
+
+        public String getNewPassword() {
+            return newPassword;
+        }
+
+        public void setNewPassword(String newPassword) {
+            this.newPassword = newPassword;
+        }
+    }
+
+    public static class SetPhoneRequest {
+        @Email(message = "Invalid email format")
+        private String email;
+
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
+        private String phone;
+
+        @NotBlank(message = "Password is required")
+        private String password;
+
+        public SetPhoneRequest() {}
+
+        public SetPhoneRequest(String email, String phone, String password) {
+            this.email = email;
+            this.phone = phone;
+            this.password = password;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
         }
     }
 
