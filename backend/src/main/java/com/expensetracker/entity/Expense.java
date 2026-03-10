@@ -35,6 +35,15 @@ public class Expense {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "receipt_path")
+    private String receiptPath;
+
+    @Column(name = "receipt_original_name")
+    private String receiptOriginalName;
+
+    @Column(name = "receipt_uploaded_at")
+    private LocalDateTime receiptUploadedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -42,7 +51,8 @@ public class Expense {
     public Expense() {}
 
     public Expense(Long id, String title, String description, BigDecimal amount, Category category,
-                   LocalDate expenseDate, LocalDateTime createdAt, LocalDateTime updatedAt, User user) {
+                   LocalDate expenseDate, LocalDateTime createdAt, LocalDateTime updatedAt,
+                   String receiptPath, String receiptOriginalName, LocalDateTime receiptUploadedAt, User user) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -51,6 +61,9 @@ public class Expense {
         this.expenseDate = expenseDate;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.receiptPath = receiptPath;
+        this.receiptOriginalName = receiptOriginalName;
+        this.receiptUploadedAt = receiptUploadedAt;
         this.user = user;
     }
 
@@ -122,6 +135,30 @@ public class Expense {
         this.updatedAt = updatedAt;
     }
 
+    public String getReceiptPath() {
+        return receiptPath;
+    }
+
+    public void setReceiptPath(String receiptPath) {
+        this.receiptPath = receiptPath;
+    }
+
+    public String getReceiptOriginalName() {
+        return receiptOriginalName;
+    }
+
+    public void setReceiptOriginalName(String receiptOriginalName) {
+        this.receiptOriginalName = receiptOriginalName;
+    }
+
+    public LocalDateTime getReceiptUploadedAt() {
+        return receiptUploadedAt;
+    }
+
+    public void setReceiptUploadedAt(LocalDateTime receiptUploadedAt) {
+        this.receiptUploadedAt = receiptUploadedAt;
+    }
+
     public User getUser() {
         return user;
     }
@@ -155,6 +192,9 @@ public class Expense {
         private LocalDate expenseDate;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
+        private String receiptPath;
+        private String receiptOriginalName;
+        private LocalDateTime receiptUploadedAt;
         private User user;
 
         public Builder id(Long id) {
@@ -197,13 +237,29 @@ public class Expense {
             return this;
         }
 
+        public Builder receiptPath(String receiptPath) {
+            this.receiptPath = receiptPath;
+            return this;
+        }
+
+        public Builder receiptOriginalName(String receiptOriginalName) {
+            this.receiptOriginalName = receiptOriginalName;
+            return this;
+        }
+
+        public Builder receiptUploadedAt(LocalDateTime receiptUploadedAt) {
+            this.receiptUploadedAt = receiptUploadedAt;
+            return this;
+        }
+
         public Builder user(User user) {
             this.user = user;
             return this;
         }
 
         public Expense build() {
-            return new Expense(id, title, description, amount, category, expenseDate, createdAt, updatedAt, user);
+            return new Expense(id, title, description, amount, category, expenseDate, createdAt, updatedAt,
+                    receiptPath, receiptOriginalName, receiptUploadedAt, user);
         }
     }
 }

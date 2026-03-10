@@ -7,8 +7,11 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -55,6 +58,29 @@ public class ExpenseController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         expenseService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Expense deleted", null));
+    }
+
+    @PostMapping("/{id}/receipt")
+    public ResponseEntity<ApiResponse<ExpenseResponse>> uploadReceipt(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        ExpenseResponse response = expenseService.uploadReceipt(id, file);
+        return ResponseEntity.ok(ApiResponse.success("Receipt uploaded", response));
+    }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadReceipt(@PathVariable Long id) {
+        ExpenseService.ReceiptDownload download = expenseService.getReceipt(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(download.getContentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.getFilename() + "\"")
+                .body(download.getResource());
+    }
+
+    @DeleteMapping("/{id}/receipt")
+    public ResponseEntity<ApiResponse<ExpenseResponse>> deleteReceipt(@PathVariable Long id) {
+        ExpenseResponse response = expenseService.deleteReceipt(id);
+        return ResponseEntity.ok(ApiResponse.success("Receipt deleted", response));
     }
 
     @GetMapping("/category/{category}")

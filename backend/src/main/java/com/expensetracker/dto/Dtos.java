@@ -18,20 +18,15 @@ public class Dtos {
         @Email(message = "Invalid email format")
         private String email;
 
-        @NotBlank(message = "Phone is required")
-        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
-        private String phone;
-
         @NotBlank(message = "Password is required")
         @Size(min = 6, message = "Password must be at least 6 characters")
         private String password;
 
         public RegisterRequest() {}
 
-        public RegisterRequest(String name, String email, String phone, String password) {
+        public RegisterRequest(String name, String email, String password) {
             this.name = name;
             this.email = email;
-            this.phone = phone;
             this.password = password;
         }
 
@@ -51,14 +46,6 @@ public class Dtos {
             this.email = email;
         }
 
-        public String getPhone() {
-            return phone;
-        }
-
-        public void setPhone(String phone) {
-            this.phone = phone;
-        }
-
         public String getPassword() {
             return password;
         }
@@ -69,20 +56,17 @@ public class Dtos {
     }
 
     public static class LoginRequest {
+        @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
         private String email;
-
-        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
-        private String phone;
 
         @NotBlank(message = "Password is required")
         private String password;
 
         public LoginRequest() {}
 
-        public LoginRequest(String email, String phone, String password) {
+        public LoginRequest(String email, String password) {
             this.email = email;
-            this.phone = phone;
             this.password = password;
         }
 
@@ -92,14 +76,6 @@ public class Dtos {
 
         public void setEmail(String email) {
             this.email = email;
-        }
-
-        public String getPhone() {
-            return phone;
-        }
-
-        public void setPhone(String phone) {
-            this.phone = phone;
         }
 
         public String getPassword() {
@@ -111,207 +87,6 @@ public class Dtos {
         }
     }
 
-    public static class LoginStepResponse {
-        private boolean otpRequired;
-        private boolean phoneRequired;
-
-        public LoginStepResponse() {}
-
-        public LoginStepResponse(boolean otpRequired) {
-            this.otpRequired = otpRequired;
-        }
-
-        public LoginStepResponse(boolean otpRequired, boolean phoneRequired) {
-            this.otpRequired = otpRequired;
-            this.phoneRequired = phoneRequired;
-        }
-
-        public boolean isOtpRequired() {
-            return otpRequired;
-        }
-
-        public void setOtpRequired(boolean otpRequired) {
-            this.otpRequired = otpRequired;
-        }
-
-        public boolean isPhoneRequired() {
-            return phoneRequired;
-        }
-
-        public void setPhoneRequired(boolean phoneRequired) {
-            this.phoneRequired = phoneRequired;
-        }
-    }
-
-    public static class VerifyOtpRequest {
-        private String email;
-
-        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
-        private String phone;
-
-        @NotBlank(message = "OTP is required")
-        private String otp;
-
-        public VerifyOtpRequest() {}
-
-        public VerifyOtpRequest(String email, String phone, String otp) {
-            this.email = email;
-            this.phone = phone;
-            this.otp = otp;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public String getPhone() {
-            return phone;
-        }
-
-        public void setPhone(String phone) {
-            this.phone = phone;
-        }
-
-        public String getOtp() {
-            return otp;
-        }
-
-        public void setOtp(String otp) {
-            this.otp = otp;
-        }
-    }
-
-    public static class ForgotPasswordRequest {
-        private String email;
-
-        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
-        private String phone;
-
-        public ForgotPasswordRequest() {}
-
-        public ForgotPasswordRequest(String email, String phone) {
-            this.email = email;
-            this.phone = phone;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public String getPhone() {
-            return phone;
-        }
-
-        public void setPhone(String phone) {
-            this.phone = phone;
-        }
-    }
-
-    public static class ResetPasswordRequest {
-        private String email;
-
-        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
-        private String phone;
-
-        @NotBlank(message = "OTP is required")
-        private String otp;
-
-        @NotBlank(message = "New password is required")
-        @Size(min = 6, message = "Password must be at least 6 characters")
-        private String newPassword;
-
-        public ResetPasswordRequest() {}
-
-        public ResetPasswordRequest(String email, String phone, String otp, String newPassword) {
-            this.email = email;
-            this.phone = phone;
-            this.otp = otp;
-            this.newPassword = newPassword;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public String getPhone() {
-            return phone;
-        }
-
-        public void setPhone(String phone) {
-            this.phone = phone;
-        }
-
-        public String getOtp() {
-            return otp;
-        }
-
-        public void setOtp(String otp) {
-            this.otp = otp;
-        }
-
-        public String getNewPassword() {
-            return newPassword;
-        }
-
-        public void setNewPassword(String newPassword) {
-            this.newPassword = newPassword;
-        }
-    }
-
-    public static class SetPhoneRequest {
-        @Email(message = "Invalid email format")
-        private String email;
-
-        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone number")
-        private String phone;
-
-        @NotBlank(message = "Password is required")
-        private String password;
-
-        public SetPhoneRequest() {}
-
-        public SetPhoneRequest(String email, String phone, String password) {
-            this.email = email;
-            this.phone = phone;
-            this.password = password;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public String getPhone() {
-            return phone;
-        }
-
-        public void setPhone(String phone) {
-            this.phone = phone;
-        }
-
-        public String getPassword() {
-            return password;
-        }
-
-        public void setPassword(String password) {
-            this.password = password;
-        }
-    }
 
     public static class AuthResponse {
         private String token;
@@ -418,6 +193,227 @@ public class Dtos {
         }
     }
 
+    // ===== BUDGET DTOs =====
+    public static class BudgetRequest {
+        @NotBlank(message = "Month is required")
+        @Pattern(regexp = "^\\d{4}-\\d{2}$", message = "Month must be in YYYY-MM format")
+        private String month;
+
+        private Category category; // null for total budget
+
+        @NotNull(message = "Amount is required")
+        @DecimalMin(value = "0.01", message = "Amount must be positive")
+        private BigDecimal amount;
+
+        @Min(value = 1, message = "Threshold must be between 1 and 100")
+        @Max(value = 100, message = "Threshold must be between 1 and 100")
+        private Integer thresholdPercent;
+
+        public BudgetRequest() {}
+
+        public BudgetRequest(String month, Category category, BigDecimal amount, Integer thresholdPercent) {
+            this.month = month;
+            this.category = category;
+            this.amount = amount;
+            this.thresholdPercent = thresholdPercent;
+        }
+
+        public String getMonth() {
+            return month;
+        }
+
+        public void setMonth(String month) {
+            this.month = month;
+        }
+
+        public Category getCategory() {
+            return category;
+        }
+
+        public void setCategory(Category category) {
+            this.category = category;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public void setAmount(BigDecimal amount) {
+            this.amount = amount;
+        }
+
+        public Integer getThresholdPercent() {
+            return thresholdPercent;
+        }
+
+        public void setThresholdPercent(Integer thresholdPercent) {
+            this.thresholdPercent = thresholdPercent;
+        }
+    }
+
+    public static class BudgetResponse {
+        private Long id;
+        private String month;
+        private Category category;
+        private BigDecimal amount;
+        private Integer thresholdPercent;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public BudgetResponse() {}
+
+        public BudgetResponse(Long id, String month, Category category, BigDecimal amount,
+                              Integer thresholdPercent, LocalDateTime createdAt, LocalDateTime updatedAt) {
+            this.id = id;
+            this.month = month;
+            this.category = category;
+            this.amount = amount;
+            this.thresholdPercent = thresholdPercent;
+            this.createdAt = createdAt;
+            this.updatedAt = updatedAt;
+        }
+
+        public static BudgetResponse from(Long id, String month, Category category, BigDecimal amount,
+                                          Integer thresholdPercent, LocalDateTime createdAt, LocalDateTime updatedAt) {
+            return new BudgetResponse(id, month, category, amount, thresholdPercent, createdAt, updatedAt);
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getMonth() {
+            return month;
+        }
+
+        public void setMonth(String month) {
+            this.month = month;
+        }
+
+        public Category getCategory() {
+            return category;
+        }
+
+        public void setCategory(Category category) {
+            this.category = category;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public void setAmount(BigDecimal amount) {
+            this.amount = amount;
+        }
+
+        public Integer getThresholdPercent() {
+            return thresholdPercent;
+        }
+
+        public void setThresholdPercent(Integer thresholdPercent) {
+            this.thresholdPercent = thresholdPercent;
+        }
+
+        public LocalDateTime getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public LocalDateTime getUpdatedAt() {
+            return updatedAt;
+        }
+
+        public void setUpdatedAt(LocalDateTime updatedAt) {
+            this.updatedAt = updatedAt;
+        }
+    }
+
+    public static class BudgetAlert {
+        private Long budgetId;
+        private String month;
+        private Category category;
+        private BigDecimal amount;
+        private BigDecimal spent;
+        private Integer thresholdPercent;
+        private BigDecimal percentUsed;
+
+        public BudgetAlert() {}
+
+        public BudgetAlert(Long budgetId, String month, Category category, BigDecimal amount, BigDecimal spent,
+                           Integer thresholdPercent, BigDecimal percentUsed) {
+            this.budgetId = budgetId;
+            this.month = month;
+            this.category = category;
+            this.amount = amount;
+            this.spent = spent;
+            this.thresholdPercent = thresholdPercent;
+            this.percentUsed = percentUsed;
+        }
+
+        public Long getBudgetId() {
+            return budgetId;
+        }
+
+        public void setBudgetId(Long budgetId) {
+            this.budgetId = budgetId;
+        }
+
+        public String getMonth() {
+            return month;
+        }
+
+        public void setMonth(String month) {
+            this.month = month;
+        }
+
+        public Category getCategory() {
+            return category;
+        }
+
+        public void setCategory(Category category) {
+            this.category = category;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public void setAmount(BigDecimal amount) {
+            this.amount = amount;
+        }
+
+        public BigDecimal getSpent() {
+            return spent;
+        }
+
+        public void setSpent(BigDecimal spent) {
+            this.spent = spent;
+        }
+
+        public Integer getThresholdPercent() {
+            return thresholdPercent;
+        }
+
+        public void setThresholdPercent(Integer thresholdPercent) {
+            this.thresholdPercent = thresholdPercent;
+        }
+
+        public BigDecimal getPercentUsed() {
+            return percentUsed;
+        }
+
+        public void setPercentUsed(BigDecimal percentUsed) {
+            this.percentUsed = percentUsed;
+        }
+    }
+
     // ===== EXPENSE DTOs =====
     public static class ExpenseRequest {
         @NotBlank(message = "Title is required")
@@ -495,11 +491,15 @@ public class Dtos {
         private LocalDate expenseDate;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
+        private boolean receiptAvailable;
+        private String receiptOriginalName;
+        private LocalDateTime receiptUploadedAt;
 
         public ExpenseResponse() {}
 
         public ExpenseResponse(Long id, String title, String description, BigDecimal amount, Category category,
-                               LocalDate expenseDate, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                               LocalDate expenseDate, LocalDateTime createdAt, LocalDateTime updatedAt,
+                               boolean receiptAvailable, String receiptOriginalName, LocalDateTime receiptUploadedAt) {
             this.id = id;
             this.title = title;
             this.description = description;
@@ -508,6 +508,9 @@ public class Dtos {
             this.expenseDate = expenseDate;
             this.createdAt = createdAt;
             this.updatedAt = updatedAt;
+            this.receiptAvailable = receiptAvailable;
+            this.receiptOriginalName = receiptOriginalName;
+            this.receiptUploadedAt = receiptUploadedAt;
         }
 
         public static Builder builder() {
@@ -578,6 +581,30 @@ public class Dtos {
             this.updatedAt = updatedAt;
         }
 
+        public boolean isReceiptAvailable() {
+            return receiptAvailable;
+        }
+
+        public void setReceiptAvailable(boolean receiptAvailable) {
+            this.receiptAvailable = receiptAvailable;
+        }
+
+        public String getReceiptOriginalName() {
+            return receiptOriginalName;
+        }
+
+        public void setReceiptOriginalName(String receiptOriginalName) {
+            this.receiptOriginalName = receiptOriginalName;
+        }
+
+        public LocalDateTime getReceiptUploadedAt() {
+            return receiptUploadedAt;
+        }
+
+        public void setReceiptUploadedAt(LocalDateTime receiptUploadedAt) {
+            this.receiptUploadedAt = receiptUploadedAt;
+        }
+
         public static class Builder {
             private Long id;
             private String title;
@@ -587,6 +614,9 @@ public class Dtos {
             private LocalDate expenseDate;
             private LocalDateTime createdAt;
             private LocalDateTime updatedAt;
+            private boolean receiptAvailable;
+            private String receiptOriginalName;
+            private LocalDateTime receiptUploadedAt;
 
             public Builder id(Long id) {
                 this.id = id;
@@ -628,8 +658,24 @@ public class Dtos {
                 return this;
             }
 
+            public Builder receiptAvailable(boolean receiptAvailable) {
+                this.receiptAvailable = receiptAvailable;
+                return this;
+            }
+
+            public Builder receiptOriginalName(String receiptOriginalName) {
+                this.receiptOriginalName = receiptOriginalName;
+                return this;
+            }
+
+            public Builder receiptUploadedAt(LocalDateTime receiptUploadedAt) {
+                this.receiptUploadedAt = receiptUploadedAt;
+                return this;
+            }
+
             public ExpenseResponse build() {
-                return new ExpenseResponse(id, title, description, amount, category, expenseDate, createdAt, updatedAt);
+                return new ExpenseResponse(id, title, description, amount, category, expenseDate, createdAt, updatedAt,
+                        receiptAvailable, receiptOriginalName, receiptUploadedAt);
             }
         }
     }

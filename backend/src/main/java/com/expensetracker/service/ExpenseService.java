@@ -6,10 +6,19 @@ import com.expensetracker.entity.Expense.Category;
 import com.expensetracker.entity.User;
 import com.expensetracker.repository.ExpenseRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,6 +28,12 @@ public class ExpenseService {
 
     @Autowired private ExpenseRepository expenseRepository;
     @Autowired private AuthService authService;
+
+    @Value("${app.receipts.base-dir:uploads/receipts}")
+    private String receiptsBaseDir;
+
+    @Value("${app.receipts.max-bytes:5242880}")
+    private long receiptsMaxBytes;
 
     public ExpenseResponse create(ExpenseRequest request) {
         User user = authService.getCurrentUser();
@@ -70,6 +85,7 @@ public class ExpenseService {
         User user = authService.getCurrentUser();
         Expense expense = expenseRepository.findByIdAndUserId(id, user.getId())
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
+        deleteReceiptFile(expense.getReceiptPath());
         expenseRepository.delete(expense);
     }
 
@@ -126,6 +142,95 @@ public class ExpenseService {
                 .build();
     }
 
+    public ExpenseResponse uploadReceipt(Long id, MultipartFile file) {
+        User user = authService.getCurrentUser();
+        Expense expense = expenseRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("Receipt file is required");
+        }
+        if (file.getSize() > receiptsMaxBytes) {
+            throw new RuntimeException("Receipt file is too large");
+        }
+        String contentType = Optional.ofNullable(file.getContentType()).orElse("");
+        if (!(contentType.equals("application/pdf") || contentType.startsWith("image/"))) {
+            throw new RuntimeException("Only image or PDF files are allowed");
+        }
+
+        String originalName = Optional.ofNullable(file.getOriginalFilename()).orElse("receipt");
+        originalName = Paths.get(originalName).getFileName().toString();
+        String extension = getExtension(originalName);
+        if (extension.isEmpty()) {
+            extension = contentType.equals("application/pdf") ? ".pdf" : ".jpg";
+        }
+
+        try {
+            Path dir = Paths.get(receiptsBaseDir, String.valueOf(user.getId()), String.valueOf(expense.getId()));
+            Files.createDirectories(dir);
+            Path target = dir.resolve("receipt" + extension.toLowerCase(Locale.ROOT));
+
+            if (expense.getReceiptPath() != null && !expense.getReceiptPath().equals(target.toString())) {
+                deleteReceiptFile(expense.getReceiptPath());
+            }
+
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            expense.setReceiptPath(target.toString());
+            expense.setReceiptOriginalName(originalName);
+            expense.setReceiptUploadedAt(LocalDateTime.now());
+            return toResponse(expenseRepository.save(expense));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to store receipt");
+        }
+    }
+
+    public ReceiptDownload getReceipt(Long id) {
+        User user = authService.getCurrentUser();
+        Expense expense = expenseRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+        if (expense.getReceiptPath() == null || expense.getReceiptPath().isBlank()) {
+            throw new RuntimeException("Receipt not found");
+        }
+        try {
+            Path path = Paths.get(expense.getReceiptPath());
+            if (!Files.exists(path)) {
+                throw new RuntimeException("Receipt not found");
+            }
+            Resource resource = new UrlResource(path.toUri());
+            String contentType = Optional.ofNullable(Files.probeContentType(path)).orElse("application/octet-stream");
+            String filename = Optional.ofNullable(expense.getReceiptOriginalName()).orElse(path.getFileName().toString());
+            filename = filename.replace("\"", "'");
+            return new ReceiptDownload(resource, contentType, filename);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load receipt");
+        }
+    }
+
+    public ExpenseResponse deleteReceipt(Long id) {
+        User user = authService.getCurrentUser();
+        Expense expense = expenseRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+        deleteReceiptFile(expense.getReceiptPath());
+        expense.setReceiptPath(null);
+        expense.setReceiptOriginalName(null);
+        expense.setReceiptUploadedAt(null);
+        return toResponse(expenseRepository.save(expense));
+    }
+
+    private void deleteReceiptFile(String path) {
+        if (path == null || path.isBlank()) return;
+        try {
+            Files.deleteIfExists(Paths.get(path));
+        } catch (Exception ignored) {}
+    }
+
+    private String getExtension(String filename) {
+        int idx = filename.lastIndexOf('.');
+        if (idx == -1) return "";
+        return filename.substring(idx);
+    }
+
     private ExpenseResponse toResponse(Expense e) {
         return ExpenseResponse.builder()
                 .id(e.getId())
@@ -136,6 +241,33 @@ public class ExpenseService {
                 .expenseDate(e.getExpenseDate())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
+                .receiptAvailable(e.getReceiptPath() != null && !e.getReceiptPath().isBlank())
+                .receiptOriginalName(e.getReceiptOriginalName())
+                .receiptUploadedAt(e.getReceiptUploadedAt())
                 .build();
+    }
+
+    public static class ReceiptDownload {
+        private final Resource resource;
+        private final String contentType;
+        private final String filename;
+
+        public ReceiptDownload(Resource resource, String contentType, String filename) {
+            this.resource = resource;
+            this.contentType = contentType;
+            this.filename = filename;
+        }
+
+        public Resource getResource() {
+            return resource;
+        }
+
+        public String getContentType() {
+            return contentType;
+        }
+
+        public String getFilename() {
+            return filename;
+        }
     }
 }

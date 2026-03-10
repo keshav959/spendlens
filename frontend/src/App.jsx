@@ -1,8 +1,4 @@
-import { useState, useEffect, useContext, createContext, useCallback } from "react";
-
-// ===================== CONTEXT =====================
-const AuthContext = createContext(null);
-const useAuth = () => useContext(AuthContext);
+import { useState, useEffect, useCallback } from "react";
 
 // ===================== API SERVICE =====================
 const API_BASE = "/api";
@@ -22,14 +18,34 @@ const api = {
   },
   register: (body) => api.request("POST", "/auth/register", body),
   login: (body) => api.request("POST", "/auth/login", body),
-  verifyOtp: (body) => api.request("POST", "/auth/verify-otp", body),
-  forgotPassword: (body) => api.request("POST", "/auth/forgot-password", body),
-  resetPassword: (body) => api.request("POST", "/auth/reset-password", body),
-  setPhone: (body) => api.request("POST", "/auth/set-phone", body),
   getExpenses: (token) => api.request("GET", "/expenses", null, token),
   createExpense: (body, token) => api.request("POST", "/expenses", body, token),
   updateExpense: (id, body, token) => api.request("PUT", `/expenses/${id}`, body, token),
   deleteExpense: (id, token) => api.request("DELETE", `/expenses/${id}`, null, token),
+  uploadReceipt: async (id, file, token) => {
+    const form = new FormData();
+    form.append("file", file);
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(`${API_BASE}/expenses/${id}/receipt`, { method: "POST", headers, body: form });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || "Request failed");
+    return data.data;
+  },
+  deleteReceipt: (id, token) => api.request("DELETE", `/expenses/${id}/receipt`, null, token),
+  downloadReceipt: async (id, token) => {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(`${API_BASE}/expenses/${id}/receipt`, { method: "GET", headers });
+    if (!res.ok) throw new Error("Failed to download receipt");
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="(.+?)"/);
+    const filename = match ? match[1] : "receipt";
+    return { blob, filename };
+  },
+  getBudgets: (month, token) => api.request("GET", `/budgets?month=${encodeURIComponent(month)}`, null, token),
+  saveBudget: (body, token) => api.request("POST", "/budgets", body, token),
+  deleteBudget: (id, token) => api.request("DELETE", `/budgets/${id}`, null, token),
+  getBudgetAlerts: (month, token) => api.request("GET", `/budgets/alerts?month=${encodeURIComponent(month)}`, null, token),
   getDashboard: (token) => api.request("GET", "/expenses/dashboard", null, token),
   getRecurring: (token) => api.request("GET", "/recurring", null, token),
   createRecurring: (body, token) => api.request("POST", "/recurring", body, token),
@@ -46,7 +62,7 @@ const icons = {
   utilities: "💡", travel: "✈", other: "📦",
   up: "↑", down: "↓", wallet: "◈", trend: "∿", count: "#",
   search: "⌕", filter: "⊟", check: "✓", user: "◉",
-  sun: "☀", moon: "☾", repeat: "↻",
+  sun: "☀", moon: "☾", repeat: "↻", budgets: "🎯", receipt: "🧾",
 };
 
 const categoryIcon = (cat) => icons[cat?.toLowerCase()] || icons.other;
@@ -55,6 +71,8 @@ const categoryColors = {
   ENTERTAINMENT: "#96CEB4", HEALTHCARE: "#FFEAA7", SHOPPING: "#DDA0DD",
   EDUCATION: "#98D8C8", UTILITIES: "#F0A500", TRAVEL: "#FF8C94", OTHER: "#A8A8A8",
 };
+
+const currentMonth = () => new Date().toISOString().slice(0, 7);
 
 // ===================== STYLES =====================
 const styles = `
@@ -135,6 +153,38 @@ const styles = `
   .recurring-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
 
   .recurring-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  .budget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .budget-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .budget-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .budget-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  .alert-card { border: 1px solid rgba(255,165,2,0.4); background: rgba(255,165,2,0.08); }
+  .alert-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-badge { padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(255,165,2,0.2); color: var(--warn); }
+
+  .receipt-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .receipt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .file-input { font-size: 12px; color: var(--muted); }
 
   /* AUTH SCREEN */
   .auth-screen {
@@ -466,13 +516,7 @@ function ToastContainer({ toasts }) {
 // ===================== AUTH SCREENS =====================
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
-  const [otpStep, setOtpStep] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [pendingEmail, setPendingEmail] = useState("");
-  const [pendingPhone, setPendingPhone] = useState("");
-  const [pendingPassword, setPendingPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -480,65 +524,12 @@ function AuthScreen({ onAuth }) {
     e.preventDefault();
     setError(""); setLoading(true);
     try {
-      let data;
-      if (otpStep) {
-        data = await api.verifyOtp({ email: pendingEmail || null, phone: pendingPhone || null, otp });
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
-        onAuth(data);
-        setOtpStep(false);
-        setOtp("");
-        setPendingEmail("");
-        setNewPassword("");
-        setPendingPassword("");
-      } else if (mode === "forgot") {
-        await api.forgotPassword({ email: form.email || null, phone: form.phone || null });
-        setPendingEmail(form.email || "");
-        setPendingPhone(form.phone || "");
-        setMode("reset");
-        setOtp("");
-        setNewPassword("");
-        return;
-      } else if (mode === "addPhone") {
-        data = await api.setPhone({ email: pendingEmail || null, phone: form.phone, password: pendingPassword });
-        if (data.otpRequired) {
-          setOtpStep(true);
-          setPendingPhone(form.phone || "");
-          setOtp("");
-          return;
-        }
-      } else if (mode === "reset") {
-        data = await api.resetPassword({ email: pendingEmail || null, phone: pendingPhone || null, otp, newPassword });
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
-        onAuth(data);
-        setMode("login");
-        setOtp("");
-        setNewPassword("");
-        setPendingEmail("");
-        setPendingPhone("");
-        setPendingPassword("");
-      } else if (mode === "login") {
-        data = await api.login({ email: form.email || null, phone: form.phone || null, password: form.password });
-        if (data.phoneRequired) {
-          setMode("addPhone");
-          setPendingEmail(form.email || "");
-          setPendingPassword(form.password);
-          return;
-        }
-        if (data.otpRequired) {
-          setOtpStep(true);
-          setPendingEmail(form.email || "");
-          setPendingPhone(form.phone || "");
-          setOtp("");
-          return;
-        }
-      } else {
-        data = await api.register(form);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
-        onAuth(data);
-      }
+      const data = mode === "login"
+        ? await api.login({ email: form.email, password: form.password })
+        : await api.register({ name: form.name, email: form.email, password: form.password });
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
+      onAuth(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -553,126 +544,31 @@ function AuthScreen({ onAuth }) {
         <div className="auth-subtitle">Your personal finance command center</div>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handle}>
-        {otpStep && (
-          <>
-              {pendingEmail && (
-                <div className="input-group">
-                  <label className="input-label">Email</label>
-                  <input className="input" type="email" value={pendingEmail} disabled />
-                </div>
-              )}
-              {pendingPhone && (
-                <div className="input-group">
-                  <label className="input-label">Phone</label>
-                  <input className="input" value={pendingPhone} disabled />
-                </div>
-              )}
-              <div className="input-group">
-                <label className="input-label">OTP Code</label>
-                <input className="input" placeholder="6-digit code" value={otp}
-                  onChange={e => setOtp(e.target.value)} required />
-              </div>
-          </>
-        )}
-          {!otpStep && mode === "register" && (
+          {mode === "register" && (
             <div className="input-group">
               <label className="input-label">Full Name</label>
               <input className="input" placeholder="John Doe" value={form.name}
                 onChange={e => setForm({...form, name: e.target.value})} required />
             </div>
           )}
-          {!otpStep && mode === "register" && (
-            <div className="input-group">
-              <label className="input-label">Phone (E.164)</label>
-              <input className="input" placeholder="+91XXXXXXXXXX" value={form.phone}
-                onChange={e => setForm({...form, phone: e.target.value})} required />
-            </div>
-          )}
-          {!otpStep && (
-            <>
-              {(mode === "login" || mode === "register" || mode === "forgot") && (
-                <div className="input-group">
-                  <label className="input-label">Email</label>
-                  <input className="input" type="email" placeholder="you@example.com" value={form.email}
-                    onChange={e => setForm({...form, email: e.target.value})} />
-                </div>
-              )}
-              {(mode === "login" || mode === "forgot" || mode === "addPhone") && (
-                <div className="input-group">
-                  <label className="input-label">{mode === "addPhone" ? "Phone (E.164)" : "Phone (optional)"}</label>
-                  <input className="input" placeholder="+91XXXXXXXXXX" value={form.phone}
-                    onChange={e => setForm({...form, phone: e.target.value})} required={mode === "addPhone"} />
-                </div>
-              )}
-              {mode === "addPhone" && (
-                <div className="input-group">
-                  <label className="input-label">Email</label>
-                  <input className="input" type="email" value={pendingEmail} disabled />
-                </div>
-              )}
-              {mode === "reset" && (
-                <div className="input-group">
-                  <label className="input-label">Email</label>
-                  <input className="input" type="email" value={pendingEmail} disabled />
-                </div>
-              )}
-              {mode === "reset" && pendingPhone && (
-                <div className="input-group">
-                  <label className="input-label">Phone</label>
-                  <input className="input" value={pendingPhone} disabled />
-                </div>
-              )}
-              {(mode === "login" || mode === "register") && (
-                <div className="input-group">
-                  <label className="input-label">Password</label>
-                  <input className="input" type="password" placeholder="••••••••" value={form.password}
-                    onChange={e => setForm({...form, password: e.target.value})} required />
-                </div>
-              )}
-              {mode === "reset" && (
-                <div className="input-group">
-                  <label className="input-label">OTP Code</label>
-                  <input className="input" placeholder="6-digit code" value={otp}
-                    onChange={e => setOtp(e.target.value)} required />
-                </div>
-              )}
-              {mode === "reset" && (
-                <div className="input-group">
-                  <label className="input-label">New Password</label>
-                  <input className="input" type="password" placeholder="••••••••" value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)} required />
-                </div>
-              )}
-            </>
-          )}
+          <div className="input-group">
+            <label className="input-label">Email</label>
+            <input className="input" type="email" placeholder="you@example.com" value={form.email}
+              onChange={e => setForm({...form, email: e.target.value})} required />
+          </div>
+          <div className="input-group">
+            <label className="input-label">Password</label>
+            <input className="input" type="password" placeholder="••••••••" value={form.password}
+              onChange={e => setForm({...form, password: e.target.value})} required />
+          </div>
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Please wait..." : otpStep ? "Verify OTP" :
-              mode === "login" ? "Sign In" :
-              mode === "register" ? "Create Account" :
-              mode === "forgot" ? "Send OTP" :
-              mode === "addPhone" ? "Save Phone" :
-              "Reset Password"}
+            {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
           </button>
         </form>
-        {!otpStep && (
-          <div className="auth-switch">
-            {mode === "login" && (
-              <>
-                Don't have an account? <span onClick={() => setMode("register")}>Sign up</span>
-                <span style={{ marginLeft: 12 }} onClick={() => setMode("forgot")}>Forgot password?</span>
-              </>
-            )}
-            {mode === "register" && <>Already have an account? <span onClick={() => setMode("login")}>Sign in</span></>}
-            {mode === "forgot" && <>Remembered it? <span onClick={() => setMode("login")}>Sign in</span></>}
-            {mode === "reset" && <>Back to login? <span onClick={() => setMode("login")}>Sign in</span></>}
-            {mode === "addPhone" && <>Back to login? <span onClick={() => setMode("login")}>Sign in</span></>}
-          </div>
-        )}
-        {otpStep && (
-          <div className="auth-switch">
-            <span onClick={() => { setOtpStep(false); setOtp(""); setPendingEmail(""); setPendingPhone(""); }}>Back to login</span>
-          </div>
-        )}
+        <div className="auth-switch">
+          {mode === "login" && <>Don't have an account? <span onClick={() => setMode("register")}>Sign up</span></>}
+          {mode === "register" && <>Already have an account? <span onClick={() => setMode("login")}>Sign in</span></>}
+        </div>
       </div>
     </div>
   );
@@ -682,9 +578,18 @@ function AuthScreen({ onAuth }) {
 function Dashboard({ token }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
 
   useEffect(() => {
     api.getDashboard(token).then(setStats).catch(console.error).finally(() => setLoading(false));
+  }, [token]);
+
+  useEffect(() => {
+    api.getBudgetAlerts(currentMonth(), token)
+      .then(setAlerts)
+      .catch(() => setAlerts([]))
+      .finally(() => setAlertsLoading(false));
   }, [token]);
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
@@ -716,6 +621,25 @@ function Dashboard({ token }) {
             <div className="stat-icon">{s.icon}</div>
           </div>
         ))}
+      </div>
+
+      <div className="card alert-card" style={{ marginTop: 18 }}>
+        <div className="chart-title">Budget Alerts ({currentMonth()})</div>
+        {alertsLoading ? (
+          <div className="loading"><div className="spinner" /></div>
+        ) : alerts.length === 0 ? (
+          <div style={{ color: "var(--muted)", fontSize: 13 }}>No alerts for this month</div>
+        ) : (
+          alerts.map(a => (
+            <div key={a.budgetId} className="alert-item">
+              <div>
+                <div className="title-cell">{a.category ? `${categoryIcon(a.category)} ${a.category}` : "Total Budget"}</div>
+                <div className="budget-meta">{fmt(a.spent)} spent of {fmt(a.amount)}</div>
+              </div>
+              <div className="alert-badge">{Number(a.percentUsed).toFixed(1)}%</div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="charts-row">
@@ -762,7 +686,7 @@ function Dashboard({ token }) {
 }
 
 // ===================== EXPENSE MODAL =====================
-function ExpenseModal({ expense, onClose, onSave, token }) {
+function ExpenseModal({ expense, onClose, onSave, onRefresh, token, showToast }) {
   const [form, setForm] = useState({
     title: expense?.title || "",
     description: expense?.description || "",
@@ -772,6 +696,13 @@ function ExpenseModal({ expense, onClose, onSave, token }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receipt, setReceipt] = useState({
+    available: expense?.receiptAvailable,
+    name: expense?.receiptOriginalName,
+    uploadedAt: expense?.receiptUploadedAt,
+  });
 
   const categories = ["FOOD","TRANSPORT","HOUSING","ENTERTAINMENT","HEALTHCARE","SHOPPING","EDUCATION","UTILITIES","TRAVEL","OTHER"];
 
@@ -789,6 +720,70 @@ function ExpenseModal({ expense, onClose, onSave, token }) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadReceipt = async () => {
+    if (!expense?.id) {
+      showToast("Save the expense before uploading a receipt", "error");
+      return;
+    }
+    if (!receiptFile) {
+      showToast("Choose a file to upload", "error");
+      return;
+    }
+    setReceiptLoading(true);
+    try {
+      const updated = await api.uploadReceipt(expense.id, receiptFile, token);
+      setReceipt({
+        available: updated.receiptAvailable,
+        name: updated.receiptOriginalName,
+        uploadedAt: updated.receiptUploadedAt,
+      });
+      setReceiptFile(null);
+      showToast("Receipt uploaded", "success");
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setReceiptLoading(false);
+    }
+  };
+
+  const downloadReceipt = async () => {
+    if (!expense?.id) return;
+    try {
+      const { blob, filename } = await api.downloadReceipt(expense.id, token);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "receipt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const deleteReceipt = async () => {
+    if (!expense?.id) return;
+    if (!confirm("Remove this receipt?")) return;
+    setReceiptLoading(true);
+    try {
+      const updated = await api.deleteReceipt(expense.id, token);
+      setReceipt({
+        available: updated.receiptAvailable,
+        name: updated.receiptOriginalName,
+        uploadedAt: updated.receiptUploadedAt,
+      });
+      showToast("Receipt removed", "success");
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setReceiptLoading(false);
     }
   };
 
@@ -827,6 +822,31 @@ function ExpenseModal({ expense, onClose, onSave, token }) {
               {categories.map(c => <option key={c} value={c}>{categoryIcon(c)} {c}</option>)}
             </select>
           </div>
+          {expense?.id && (
+            <div className="input-group">
+              <label className="input-label">Receipt</label>
+              <div className="receipt-badge">
+                {receipt?.available ? `${icons.receipt} ${receipt?.name || "Receipt uploaded"}` : "No receipt uploaded"}
+              </div>
+              <input className="file-input" type="file" accept="image/*,application/pdf"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
+              <div className="receipt-actions">
+                <button type="button" className="btn btn-ghost btn-sm" onClick={uploadReceipt} disabled={receiptLoading}>
+                  {receiptLoading ? "Uploading..." : "Upload"}
+                </button>
+                {receipt?.available && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={downloadReceipt}>
+                    {icons.receipt} View
+                  </button>
+                )}
+                {receipt?.available && (
+                  <button type="button" className="btn btn-danger btn-sm" onClick={deleteReceipt} disabled={receiptLoading}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <button className="btn btn-primary" type="submit" disabled={loading}>
             {loading ? "Saving..." : expense?.id ? "Update Expense" : "Add Expense"}
           </button>
@@ -865,6 +885,22 @@ function ExpensesPage({ token, showToast }) {
       showToast("Expense deleted", "success");
       load();
     } catch (e) { showToast(e.message, "error"); }
+  };
+
+  const handleDownloadReceipt = async (id) => {
+    try {
+      const { blob, filename } = await api.downloadReceipt(id, token);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "receipt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      showToast(e.message, "error");
+    }
   };
 
   const filtered = expenses.filter(e => {
@@ -917,6 +953,7 @@ function ExpensesPage({ token, showToast }) {
                   <th>Category</th>
                   <th>Amount</th>
                   <th>Date</th>
+                  <th>Receipt</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -935,8 +972,20 @@ function ExpensesPage({ token, showToast }) {
                     <td><span className="amount-cell">{fmt(e.amount)}</span></td>
                     <td><span className="date-cell">{e.expenseDate}</span></td>
                     <td>
+                      {e.receiptAvailable ? (
+                        <span className="receipt-badge">{icons.receipt} {e.receiptOriginalName || "Receipt"}</span>
+                      ) : (
+                        <span className="receipt-badge">—</span>
+                      )}
+                    </td>
+                    <td>
                       <div className="action-btns">
                         <button className="icon-btn" onClick={() => setModal(e)} title="Edit">{icons.edit}</button>
+                        {e.receiptAvailable && (
+                          <button className="icon-btn" onClick={() => handleDownloadReceipt(e.id)} title="Download receipt">
+                            {icons.receipt}
+                          </button>
+                        )}
                         <button className="icon-btn danger" onClick={() => handleDelete(e.id)} title="Delete">{icons.delete}</button>
                       </div>
                     </td>
@@ -966,6 +1015,8 @@ function ExpensesPage({ token, showToast }) {
           token={token}
           onClose={() => setModal(null)}
           onSave={() => { setModal(null); load(); showToast(modal?.id ? "Expense updated" : "Expense added", "success"); }}
+          onRefresh={() => load()}
+          showToast={showToast}
         />
       )}
     </>
@@ -1105,6 +1156,155 @@ function RecurringPage({ token, showToast }) {
   );
 }
 
+// ===================== BUDGETS PAGE =====================
+function BudgetsPage({ token, showToast }) {
+  const [month, setMonth] = useState(currentMonth());
+  const [budgets, setBudgets] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({
+    category: "TOTAL",
+    amount: "",
+    thresholdPercent: 80,
+  });
+  const categories = ["TOTAL","FOOD","TRANSPORT","HOUSING","ENTERTAINMENT","HEALTHCARE","SHOPPING","EDUCATION","UTILITIES","TRAVEL","OTHER"];
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getBudgets(month, token);
+      setBudgets(data);
+      const alertData = await api.getBudgetAlerts(month, token);
+      setAlerts(alertData);
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [month, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const saveBudget = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        month,
+        category: form.category === "TOTAL" ? null : form.category,
+        amount: Number(form.amount),
+        thresholdPercent: Number(form.thresholdPercent),
+      };
+      await api.saveBudget(payload, token);
+      showToast("Budget saved", "success");
+      setForm({ ...form, amount: "" });
+      load();
+    } catch (e) { showToast(e.message, "error"); }
+  };
+
+  const deleteBudget = async (id) => {
+    if (!confirm("Delete this budget?")) return;
+    try {
+      await api.deleteBudget(id, token);
+      showToast("Budget deleted", "success");
+      load();
+    } catch (e) { showToast(e.message, "error"); }
+  };
+
+  const fmt = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="page-title">Budgets</div>
+        <div className="page-subtitle">Set monthly budgets and track alerts</div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="section-title">Set Budget</div>
+        <form onSubmit={saveBudget}>
+          <div className="form-grid">
+            <div className="input-group">
+              <label className="input-label">Month</label>
+              <input className="input" type="month" value={month} onChange={e => setMonth(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Category</label>
+              <select className="select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                {categories.map(c => (
+                  <option key={c} value={c}>{c === "TOTAL" ? "Total Budget" : `${categoryIcon(c)} ${c}`}</option>
+                ))}
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Amount</label>
+              <input className="input" type="number" step="0.01" min="0.01" value={form.amount}
+                onChange={e => setForm({ ...form, amount: e.target.value })} required />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Alert Threshold (%)</label>
+              <input className="input" type="number" min="1" max="100" value={form.thresholdPercent}
+                onChange={e => setForm({ ...form, thresholdPercent: e.target.value })} required />
+            </div>
+          </div>
+          <button className="btn btn-primary" type="submit">Save Budget</button>
+        </form>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="section-title">Alerts ({month})</div>
+        {loading ? <div className="loading"><div className="spinner" /></div> :
+          alerts.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">✓</div>
+              <div className="empty-text">No alerts for this month</div>
+            </div>
+          ) : (
+            alerts.map(a => (
+              <div key={a.budgetId} className="alert-item">
+                <div>
+                  <div className="title-cell">{a.category ? `${categoryIcon(a.category)} ${a.category}` : "Total Budget"}</div>
+                  <div className="budget-meta">{fmt(a.spent)} spent of {fmt(a.amount)}</div>
+                </div>
+                <div className="alert-badge">{Number(a.percentUsed).toFixed(1)}%</div>
+              </div>
+            ))
+          )
+        }
+      </div>
+
+      <div className="card">
+        <div className="section-title">Budgets for {month}</div>
+        {loading ? <div className="loading"><div className="spinner" /></div> :
+          budgets.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">◎</div>
+              <div className="empty-text">No budgets set</div>
+              <div className="empty-sub">Create a total or category budget to get started</div>
+            </div>
+          ) : (
+            <div className="budget-grid">
+              {budgets.map(b => (
+                <div key={b.id} className="budget-card">
+                  <div className="budget-row">
+                    <div className="title-cell">{b.category ? `${categoryIcon(b.category)} ${b.category}` : "Total Budget"}</div>
+                    <div className="amount-cell">{fmt(b.amount)}</div>
+                  </div>
+                  <div className="budget-meta">Threshold: {b.thresholdPercent}%</div>
+                  <div className="recurring-actions">
+                    <button className="btn btn-ghost btn-sm" onClick={() => deleteBudget(b.id)}>
+                      {icons.delete} Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        }
+      </div>
+    </>
+  );
+}
+
 // ===================== APP =====================
 export default function App() {
   const [auth, setAuth] = useState(() => {
@@ -1162,6 +1362,7 @@ export default function App() {
           {[
             { id: "dashboard", label: "Dashboard", icon: icons.dashboard },
             { id: "expenses", label: "Expenses", icon: icons.expenses },
+            { id: "budgets", label: "Budgets", icon: icons.budgets },
             { id: "recurring", label: "Recurring", icon: icons.repeat },
           ].map(item => (
             <div key={item.id} className={`nav-item ${page === item.id ? "active" : ""}`} onClick={() => setPage(item.id)}>
@@ -1179,6 +1380,7 @@ export default function App() {
         <main className="main">
           {page === "dashboard" && <Dashboard token={auth.token} />}
           {page === "expenses" && <ExpensesPage token={auth.token} showToast={showToast} />}
+          {page === "budgets" && <BudgetsPage token={auth.token} showToast={showToast} />}
           {page === "recurring" && <RecurringPage token={auth.token} showToast={showToast} />}
         </main>
       </div>

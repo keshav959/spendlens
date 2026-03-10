@@ -22,32 +22,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginStepResponse>> login(@Valid @RequestBody LoginRequest request) {
-        LoginStepResponse response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("OTP sent to email", response));
-    }
-
-    @PostMapping("/verify-otp")
-    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        AuthResponse response = authService.verifyOtp(request);
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+        AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
-    }
-
-    @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<LoginStepResponse>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        LoginStepResponse response = authService.forgotPassword(request);
-        return ResponseEntity.ok(ApiResponse.success("OTP sent to phone", response));
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<AuthResponse>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        AuthResponse response = authService.resetPassword(request);
-        return ResponseEntity.ok(ApiResponse.success("Password reset successful", response));
-    }
-
-    @PostMapping("/set-phone")
-    public ResponseEntity<ApiResponse<LoginStepResponse>> setPhone(@Valid @RequestBody SetPhoneRequest request) {
-        LoginStepResponse response = authService.setPhone(request);
-        return ResponseEntity.ok(ApiResponse.success("Phone saved, OTP sent", response));
     }
 }
