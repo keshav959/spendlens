@@ -1,56 +1,391 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "./supabaseClient";
 
-// ===================== API SERVICE =====================
-const API_BASE = "/api";
+// ===================== SUPABASE HELPERS =====================
+const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+const parseAmount = (value) => Number(value || 0);
+
+const mapUser = (user, token) => {
+  const fallbackName = user?.email ? user.email.split("@")[0] : "User";
+  return {
+    token,
+    id: user?.id,
+    name: user?.user_metadata?.name || fallbackName,
+    email: user?.email || "",
+  };
+};
+
+const normalizeExpense = (row) => ({
+  id: row.id,
+  title: row.title,
+  description: row.description,
+  amount: row.amount,
+  category: row.category,
+  expenseDate: row.expense_date,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  receiptAvailable: !!row.receipt_path,
+  receiptOriginalName: row.receipt_original_name,
+  receiptUploadedAt: row.receipt_uploaded_at,
+});
+
+const normalizeBudget = (row) => ({
+  id: row.id,
+  month: row.month,
+  category: row.category,
+  amount: row.amount,
+  thresholdPercent: row.threshold_percent,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const normalizeRecurring = (row) => ({
+  id: row.id,
+  title: row.title,
+  description: row.description,
+  amount: row.amount,
+  category: row.category,
+  frequency: row.frequency,
+  nextRunDate: row.next_run_date,
+  active: row.active,
+});
+
+const getUserId = async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw new Error("You need to be signed in");
+  return data.user.id;
+};
+
+const toISODate = (value) => new Date(value).toISOString().slice(0, 10);
+
+const computeInitialNextRunDate = (startDate, frequency) => {
+  const start = new Date(startDate);
+  const today = new Date();
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+  if (startDateOnly >= todayDate) return toISODate(startDateOnly);
+
+  if (frequency === "WEEKLY") {
+    const dayOfWeek = startDateOnly.getDay() === 0 ? 7 : startDateOnly.getDay();
+    const todayDow = todayDate.getDay() === 0 ? 7 : todayDate.getDay();
+    const delta = dayOfWeek >= todayDow ? dayOfWeek - todayDow : 7 - (todayDow - dayOfWeek);
+    const next = new Date(todayDate);
+    next.setDate(todayDate.getDate() + delta);
+    return toISODate(next);
+  }
+
+  const day = startDateOnly.getDate();
+  const nextMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 1);
+  const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+  nextMonth.setDate(Math.min(day, lastDay));
+  return toISODate(nextMonth);
+};
+
+// ===================== API (SUPABASE) =====================
 const api = {
-  async request(method, path, body = null, token = null) {
-    const headers = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : null,
+  async register({ name, email, password }) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
     });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.message || "Request failed");
-    return data.data;
+    if (error) throw new Error(error.message);
+    if (!data.session) {
+      throw new Error("Check your email to confirm your account");
+    }
+    return mapUser(data.user, data.session.access_token);
   },
-  register: (body) => api.request("POST", "/auth/register", body),
-  login: (body) => api.request("POST", "/auth/login", body),
-  getExpenses: (token) => api.request("GET", "/expenses", null, token),
-  createExpense: (body, token) => api.request("POST", "/expenses", body, token),
-  updateExpense: (id, body, token) => api.request("PUT", `/expenses/${id}`, body, token),
-  deleteExpense: (id, token) => api.request("DELETE", `/expenses/${id}`, null, token),
-  uploadReceipt: async (id, file, token) => {
-    const form = new FormData();
-    form.append("file", file);
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch(`${API_BASE}/expenses/${id}/receipt`, { method: "POST", headers, body: form });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.message || "Request failed");
-    return data.data;
+  async login({ email, password }) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    return mapUser(data.user, data.session?.access_token);
   },
-  deleteReceipt: (id, token) => api.request("DELETE", `/expenses/${id}/receipt`, null, token),
-  downloadReceipt: async (id, token) => {
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch(`${API_BASE}/expenses/${id}/receipt`, { method: "GET", headers });
-    if (!res.ok) throw new Error("Failed to download receipt");
-    const blob = await res.blob();
-    const disposition = res.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="(.+?)"/);
-    const filename = match ? match[1] : "receipt";
-    return { blob, filename };
+  async getExpenses() {
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("*")
+      .order("expense_date", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(normalizeExpense);
   },
-  getBudgets: (month, token) => api.request("GET", `/budgets?month=${encodeURIComponent(month)}`, null, token),
-  saveBudget: (body, token) => api.request("POST", "/budgets", body, token),
-  deleteBudget: (id, token) => api.request("DELETE", `/budgets/${id}`, null, token),
-  getBudgetAlerts: (month, token) => api.request("GET", `/budgets/alerts?month=${encodeURIComponent(month)}`, null, token),
-  getDashboard: (token) => api.request("GET", "/expenses/dashboard", null, token),
-  getRecurring: (token) => api.request("GET", "/recurring", null, token),
-  createRecurring: (body, token) => api.request("POST", "/recurring", body, token),
-  updateRecurring: (id, body, token) => api.request("PUT", `/recurring/${id}`, body, token),
-  deleteRecurring: (id, token) => api.request("DELETE", `/recurring/${id}`, null, token),
+  async createExpense(body) {
+    const payload = {
+      title: body.title,
+      description: body.description || null,
+      amount: Number(body.amount),
+      category: body.category,
+      expense_date: body.expenseDate,
+    };
+    const { data, error } = await supabase.from("expenses").insert(payload).select("*").single();
+    if (error) throw new Error(error.message);
+    return normalizeExpense(data);
+  },
+  async updateExpense(id, body) {
+    const payload = {
+      title: body.title,
+      description: body.description || null,
+      amount: Number(body.amount),
+      category: body.category,
+      expense_date: body.expenseDate,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from("expenses").update(payload).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+    return normalizeExpense(data);
+  },
+  async deleteExpense(id) {
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+  async uploadReceipt(id, file) {
+    if (!file) throw new Error("Receipt file is required");
+    const userId = await getUserId();
+    const safeName = file.name.replace(/\s+/g, "-");
+    const path = `${userId}/${id}/${Date.now()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from("receipts").upload(path, file, {
+      upsert: true,
+      contentType: file.type || "application/octet-stream",
+    });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data, error } = await supabase
+      .from("expenses")
+      .update({
+        receipt_path: path,
+        receipt_original_name: file.name,
+        receipt_uploaded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return normalizeExpense(data);
+  },
+  async deleteReceipt(id) {
+    const { data: expense, error: fetchError } = await supabase
+      .from("expenses")
+      .select("receipt_path")
+      .eq("id", id)
+      .single();
+    if (fetchError) throw new Error(fetchError.message);
+    if (expense?.receipt_path) {
+      const { error: removeError } = await supabase.storage.from("receipts").remove([expense.receipt_path]);
+      if (removeError) throw new Error(removeError.message);
+    }
+    const { data, error } = await supabase
+      .from("expenses")
+      .update({
+        receipt_path: null,
+        receipt_original_name: null,
+        receipt_uploaded_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return normalizeExpense(data);
+  },
+  async downloadReceipt(id) {
+    const { data: expense, error: fetchError } = await supabase
+      .from("expenses")
+      .select("receipt_path, receipt_original_name")
+      .eq("id", id)
+      .single();
+    if (fetchError) throw new Error(fetchError.message);
+    if (!expense?.receipt_path) throw new Error("No receipt available");
+
+    const { data, error } = await supabase.storage.from("receipts").download(expense.receipt_path);
+    if (error) throw new Error(error.message);
+    return { blob: data, filename: expense.receipt_original_name || "receipt" };
+  },
+  async getBudgets(month) {
+    const { data, error } = await supabase
+      .from("budgets")
+      .select("*")
+      .eq("month", month)
+      .order("category", { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data || []).map(normalizeBudget);
+  },
+  async saveBudget(body) {
+    const payload = {
+      month: body.month,
+      category: body.category || null,
+      amount: Number(body.amount),
+      threshold_percent: Number(body.thresholdPercent || 80),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from("budgets")
+      .upsert(payload, { onConflict: "user_id,month,category" })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return normalizeBudget(data);
+  },
+  async deleteBudget(id) {
+    const { error } = await supabase.from("budgets").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+  async getBudgetAlerts(month) {
+    const year = Number(month.slice(0, 4));
+    const monthIndex = Number(month.slice(5, 7)) - 1;
+    const start = new Date(year, monthIndex, 1);
+    const end = new Date(year, monthIndex + 1, 0);
+    const startIso = toISODate(start);
+    const endIso = toISODate(end);
+
+    const { data: expenses, error: expenseError } = await supabase
+      .from("expenses")
+      .select("amount, category, expense_date")
+      .gte("expense_date", startIso)
+      .lte("expense_date", endIso);
+    if (expenseError) throw new Error(expenseError.message);
+
+    const { data: budgets, error: budgetError } = await supabase
+      .from("budgets")
+      .select("*")
+      .eq("month", month)
+      .order("category", { ascending: true });
+    if (budgetError) throw new Error(budgetError.message);
+
+    const totalSpent = (expenses || []).reduce((sum, e) => sum + parseAmount(e.amount), 0);
+    const byCategory = {};
+    (expenses || []).forEach((e) => {
+      byCategory[e.category] = (byCategory[e.category] || 0) + parseAmount(e.amount);
+    });
+
+    return (budgets || [])
+      .map((b) => {
+        const spent = b.category ? byCategory[b.category] || 0 : totalSpent;
+        const amount = parseAmount(b.amount);
+        if (amount <= 0) return null;
+        const threshold = Number(b.threshold_percent || 80);
+        const thresholdAmount = (amount * threshold) / 100;
+        if (spent < thresholdAmount) return null;
+        const percentUsed = (spent * 100) / amount;
+        return {
+          budgetId: b.id,
+          month: b.month,
+          category: b.category,
+          amount,
+          spent,
+          thresholdPercent: threshold,
+          percentUsed,
+        };
+      })
+      .filter(Boolean);
+  },
+  async getDashboard() {
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("amount, category, expense_date");
+    if (error) throw new Error(error.message);
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekStart = new Date(now);
+    const dow = weekStart.getDay() === 0 ? 7 : weekStart.getDay();
+    weekStart.setDate(weekStart.getDate() - (dow - 1));
+
+    const byCategory = {};
+    const monthlyTrend = monthNames.reduce((acc, m) => ({ ...acc, [m]: 0 }), {});
+
+    let totalExpenses = 0;
+    let monthlyExpenses = 0;
+    let weeklyExpenses = 0;
+    let totalTransactions = 0;
+
+    (data || []).forEach((e) => {
+      const amount = parseAmount(e.amount);
+      totalExpenses += amount;
+      totalTransactions += 1;
+
+      const expenseDate = new Date(e.expense_date);
+      if (expenseDate >= monthStart && expenseDate <= now) {
+        monthlyExpenses += amount;
+      }
+      if (expenseDate >= weekStart && expenseDate <= now) {
+        weeklyExpenses += amount;
+      }
+      byCategory[e.category] = (byCategory[e.category] || 0) + amount;
+
+      if (expenseDate.getFullYear() === now.getFullYear()) {
+        const key = monthNames[expenseDate.getMonth()];
+        monthlyTrend[key] = (monthlyTrend[key] || 0) + amount;
+      }
+    });
+
+    return {
+      totalExpenses,
+      monthlyExpenses,
+      weeklyExpenses,
+      totalTransactions,
+      expensesByCategory: byCategory,
+      monthlyTrend,
+    };
+  },
+  async getRecurring() {
+    const { data, error } = await supabase
+      .from("recurring_expenses")
+      .select("*")
+      .order("next_run_date", { ascending: true });
+    if (error) throw new Error(error.message);
+    return (data || []).map(normalizeRecurring);
+  },
+  async createRecurring(body) {
+    const startDate = body.startDate;
+    const frequency = body.frequency;
+    const dayOfWeek = new Date(startDate).getDay();
+    const normalizedDow = dayOfWeek === 0 ? 7 : dayOfWeek;
+    const payload = {
+      title: body.title,
+      description: body.description || null,
+      amount: Number(body.amount),
+      category: body.category,
+      frequency,
+      day_of_month: frequency === "MONTHLY" ? new Date(startDate).getDate() : null,
+      day_of_week: frequency === "WEEKLY" ? normalizedDow : null,
+      next_run_date: computeInitialNextRunDate(startDate, frequency),
+      active: true,
+    };
+    const { data, error } = await supabase.from("recurring_expenses").insert(payload).select("*").single();
+    if (error) throw new Error(error.message);
+    return normalizeRecurring(data);
+  },
+  async updateRecurring(id, body) {
+    const startDate = body.startDate;
+    const frequency = body.frequency;
+    const dayOfWeek = new Date(startDate).getDay();
+    const normalizedDow = dayOfWeek === 0 ? 7 : dayOfWeek;
+    const payload = {
+      title: body.title,
+      description: body.description || null,
+      amount: Number(body.amount),
+      category: body.category,
+      frequency,
+      day_of_month: frequency === "MONTHLY" ? new Date(startDate).getDate() : null,
+      day_of_week: frequency === "WEEKLY" ? normalizedDow : null,
+      next_run_date: computeInitialNextRunDate(startDate, frequency),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from("recurring_expenses").update(payload).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+    return normalizeRecurring(data);
+  },
+  async deleteRecurring(id) {
+    const { error } = await supabase.from("recurring_expenses").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+  async runRecurringNow() {
+    const { data, error } = await supabase.functions.invoke("run-recurring");
+    if (error) throw new Error(error.message);
+    return data;
+  },
 };
 
 // ===================== ICONS =====================
@@ -527,8 +862,6 @@ function AuthScreen({ onAuth }) {
       const data = mode === "login"
         ? await api.login({ email: form.email, password: form.password })
         : await api.register({ name: form.name, email: form.email, password: form.password });
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify({ id: data.id, name: data.name, email: data.email }));
       onAuth(data);
     } catch (err) {
       setError(err.message);
@@ -1027,6 +1360,7 @@ function ExpensesPage({ token, showToast }) {
 function RecurringPage({ token, showToast }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [runNowLoading, setRunNowLoading] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -1070,6 +1404,23 @@ function RecurringPage({ token, showToast }) {
     } catch (e) { showToast(e.message, "error"); }
   };
 
+  const handleRunNow = async () => {
+    setRunNowLoading(true);
+    try {
+      const result = await api.runRecurringNow();
+      if (result?.skipped) {
+        showToast("Skipped: outside run window", "success");
+      } else {
+        showToast(`Processed ${result?.processed ?? 0} recurring expenses`, "success");
+        load();
+      }
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setRunNowLoading(false);
+    }
+  };
+
   const fmt = (n) => `₹${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
 
   return (
@@ -1077,6 +1428,11 @@ function RecurringPage({ token, showToast }) {
       <div className="page-header">
         <div className="page-title">Recurring Expenses</div>
         <div className="page-subtitle">Automate your monthly and weekly payments</div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button className="btn btn-ghost btn-sm" onClick={handleRunNow} disabled={runNowLoading}>
+          {runNowLoading ? "Running..." : "Run Now"}
+        </button>
       </div>
 
       <div className="card" style={{ marginBottom: 18 }}>
@@ -1307,12 +1663,8 @@ function BudgetsPage({ token, showToast }) {
 
 // ===================== APP =====================
 export default function App() {
-  const [auth, setAuth] = useState(() => {
-    const token = localStorage.getItem("token");
-    const user = localStorage.getItem("user");
-    if (token && user) return { token, ...JSON.parse(user) };
-    return null;
-  });
+  const [auth, setAuth] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [page, setPage] = useState("dashboard");
   const [toasts, setToasts] = useState([]);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
@@ -1322,22 +1674,45 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      const session = data?.session;
+      setAuth(session ? mapUser(session.user, session.access_token) : null);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuth(session ? mapUser(session.user, session.access_token) : null);
+    });
+    return () => {
+      mounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+
   const showToast = useCallback((message, type = "success") => {
     const id = ++toastId;
     setToasts(t => [...t, { id, message, type }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
   }, []);
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const logout = async () => {
+    await supabase.auth.signOut();
     setAuth(null);
   };
+
+  if (authLoading) return (
+    <>
+      <style>{styles}</style>
+      <div className="loading"><div className="spinner" /></div>
+    </>
+  );
 
   if (!auth) return (
     <>
       <style>{styles}</style>
-      <AuthScreen onAuth={(data) => setAuth({ token: data.token, name: data.name, email: data.email })} />
+      <AuthScreen onAuth={(data) => setAuth(data)} />
       <ToastContainer toasts={toasts} />
     </>
   );
