@@ -260,6 +260,24 @@ const Icon = {
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
     </svg>
   ),
+  Sun: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="5"/>
+      <line x1="12" y1="19" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="5" y2="12"/>
+      <line x1="19" y1="12" x2="22" y2="12"/>
+      <line x1="4.2" y1="4.2" x2="6.3" y2="6.3"/>
+      <line x1="17.7" y1="17.7" x2="19.8" y2="19.8"/>
+      <line x1="4.2" y1="19.8" x2="6.3" y2="17.7"/>
+      <line x1="17.7" y1="6.3" x2="19.8" y2="4.2"/>
+    </svg>
+  ),
+  Moon: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+    </svg>
+  ),
   Plus: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -695,12 +713,19 @@ function BudgetPage({ budgets, expenses, onRefresh, showToast }) {
                   <button className="icon-btn icon-btn--danger" onClick={() => del(b.id)}><Icon.Trash /></button>
                 </div>
               </div>
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: `${pct}%`, background: over ? "#f43f5e" : "#22c55e" }} />
-              </div>
-              <div className="budget-meta">
-                <span>Spent: {fmt(spent)}</span>
-                <span className={over ? "over-label" : ""}>{over ? `Over by ${fmt(spent - b.monthlyLimit)}` : `Remaining: ${fmt(b.monthlyLimit - spent)}`}</span>
+              <div className="budget-progress">
+                <div
+                  className="progress-ring"
+                  style={{ "--pct": `${pct}%`, "--ring-color": over ? "#f43f5e" : "#22c55e" }}
+                >
+                  <span>{Math.round(pct)}%</span>
+                </div>
+                <div className="budget-meta">
+                  <span>Spent: {fmt(spent)}</span>
+                  <span className={over ? "over-label" : ""}>
+                    {over ? `Over by ${fmt(spent - b.monthlyLimit)}` : `Remaining: ${fmt(b.monthlyLimit - spent)}`}
+                  </span>
+                </div>
               </div>
             </div>
           );
@@ -832,6 +857,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
   const showToast = useCallback((message, type = "success") => setToast({ message, type }), []);
 
@@ -850,6 +877,11 @@ export default function App() {
       listener?.subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -908,7 +940,19 @@ export default function App() {
           <h1 className="topbar-title">
             {navItems.find(n => n.id === tab)?.label}
           </h1>
-          {loading && <span className="spinner spinner--sm" />}
+          <div className="topbar-actions">
+            {loading && <span className="spinner spinner--sm" />}
+            <button className="btn btn-primary btn-compact" onClick={() => setQuickAddOpen(true)}>
+              <Icon.Plus /> Quick Add
+            </button>
+            <button
+              className="btn btn-ghost btn-compact"
+              onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
+            >
+              {theme === "dark" ? <Icon.Sun /> : <Icon.Moon />}
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
         </div>
         <div className="content">
           {tab === "dashboard" && <Dashboard expenses={data.expenses} budgets={data.budgets} recurring={data.recurring} />}
@@ -919,6 +963,20 @@ export default function App() {
       </main>
 
       <Toast toast={toast} onDismiss={() => setToast(null)} />
+
+      {quickAddOpen && (
+        <Modal title="Quick Add Expense" onClose={() => setQuickAddOpen(false)}>
+          <ExpenseForm
+            initial={null}
+            onSave={() => {
+              setQuickAddOpen(false);
+              showToast("Expense added", "success");
+              load();
+            }}
+            onClose={() => setQuickAddOpen(false)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
