@@ -367,7 +367,7 @@ function AuthPage({ onLogin }) {
     <div className="auth-page">
       <div className="auth-brand">
         <div className="auth-logo">₹</div>
-        <h1>Kharcha</h1>
+        <h1>SpendLens</h1>
         <p>Your money, fully in view.</p>
       </div>
       <div className="auth-card">
@@ -888,7 +888,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <span className="brand-symbol">₹</span>
-          <span className="brand-name">Kharcha</span>
+          <span className="brand-name">SpendLens</span>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(n => (
