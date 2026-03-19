@@ -22,6 +22,7 @@
   --sidebar-w:  220px;
   --topbar-h:   60px;
   --shadow:     0 4px 24px rgba(0,0,0,0.4);
+  --ease:       cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ─── Reset ─────────────────────────────────────────────────────── */
@@ -102,7 +103,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: 500;
   text-align: left;
   width: 100%;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.2s var(--ease);
 }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--orange-dim); color: var(--orange); }
@@ -178,6 +179,11 @@ a { color: inherit; text-decoration: none; }
   gap: 14px;
   margin-bottom: 22px;
 }
+.stats-grid .stat-card { animation: fade-up 0.5s var(--ease) both; }
+.stats-grid .stat-card:nth-child(1) { animation-delay: 0.02s; }
+.stats-grid .stat-card:nth-child(2) { animation-delay: 0.06s; }
+.stats-grid .stat-card:nth-child(3) { animation-delay: 0.1s; }
+.stats-grid .stat-card:nth-child(4) { animation-delay: 0.14s; }
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -188,7 +194,7 @@ a { color: inherit; text-decoration: none; }
   gap: 6px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s var(--ease), transform 0.25s var(--ease);
 }
 .stat-card::before {
   content: '';
@@ -197,7 +203,7 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(135deg, var(--accent, var(--orange)) 0%, transparent 60%);
   opacity: 0.05;
 }
-.stat-card:hover { border-color: var(--border2); }
+.stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
 .stat-label {
   font-size: 0.75rem;
   color: var(--text3);
@@ -241,7 +247,10 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
+  transition: border-color 0.2s var(--ease), transform 0.25s var(--ease);
+  animation: fade-up 0.45s var(--ease) both;
 }
+.panel:hover { border-color: var(--border2); transform: translateY(-2px); }
 .panel-title {
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -267,9 +276,9 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   padding: 9px 10px;
   border-radius: 8px;
-  transition: background 0.1s;
+  transition: background 0.2s var(--ease), transform 0.2s var(--ease);
 }
-.recent-row:hover { background: var(--surface2); }
+.recent-row:hover { background: var(--surface2); transform: translateX(2px); }
 .recent-desc { font-size: 0.875rem; display: block; }
 .recent-cat { font-size: 0.72rem; color: var(--text3); }
 .recent-right { text-align: right; flex-shrink: 0; }
@@ -302,6 +311,7 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  animation: fade-up 0.45s var(--ease) both;
 }
 .data-table {
   width: 100%;
@@ -322,10 +332,10 @@ a { color: inherit; text-decoration: none; }
 }
 .data-table tbody tr {
   border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
+  transition: background 0.2s var(--ease), transform 0.2s var(--ease);
 }
 .data-table tbody tr:last-child { border-bottom: none; }
-.data-table tbody tr:hover { background: var(--surface2); }
+.data-table tbody tr:hover { background: var(--surface2); transform: translateX(2px); }
 .data-table td { padding: 12px 16px; vertical-align: middle; color: var(--text2); }
 .td-main { color: var(--text); display: block; }
 .td-sub { font-size: 0.72rem; color: var(--text3); }
@@ -382,8 +392,10 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s var(--ease), transform 0.25s var(--ease);
+  animation: fade-up 0.45s var(--ease) both;
 }
+.budget-card:hover { border-color: var(--border2); transform: translateY(-2px); }
 .budget-card--over { border-color: rgba(244, 63, 94, 0.35); }
 .budget-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
 .budget-cat { display: block; font-weight: 600; margin-bottom: 3px; }
@@ -404,9 +416,10 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
   white-space: nowrap;
 }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-primary { background: var(--orange); color: #fff; }
@@ -428,7 +441,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--text3);
   border-radius: 7px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.2s var(--ease);
 }
 .icon-btn:hover { background: var(--surface2); color: var(--text); }
 .icon-btn--danger:hover { background: rgba(244,63,94,0.12); color: var(--red); }
@@ -491,7 +504,7 @@ label select option { background: var(--surface); }
   justify-content: center;
   z-index: 100;
   padding: 20px;
-  animation: fade-in 0.15s ease;
+  animation: fade-in 0.2s var(--ease);
 }
 .modal {
   background: var(--surface);
@@ -500,7 +513,7 @@ label select option { background: var(--surface); }
   width: 100%;
   max-width: 520px;
   box-shadow: var(--shadow);
-  animation: slide-up 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: slide-up 0.25s var(--ease);
 }
 .modal-header {
   display: flex;
@@ -538,6 +551,7 @@ label select option { background: var(--surface); }
 
 .auth-brand {
   text-align: center;
+  animation: fade-up 0.5s var(--ease) both;
 }
 .auth-logo {
   font-family: 'DM Serif Display', serif;
@@ -562,6 +576,7 @@ label select option { background: var(--surface); }
   width: 100%;
   max-width: 380px;
   overflow: hidden;
+  animation: fade-up 0.55s var(--ease) both;
 }
 .auth-tabs {
   display: flex;
@@ -600,7 +615,7 @@ label select option { background: var(--surface); }
   font-size: 0.875rem;
   z-index: 200;
   box-shadow: var(--shadow);
-  animation: slide-up 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: slide-up 0.25s var(--ease);
   white-space: nowrap;
 }
 .toast--error { border-color: rgba(244,63,94,0.4); color: #f87171; background: rgba(13,14,17,0.95); }
@@ -633,9 +648,22 @@ label select option { background: var(--surface); }
 /* ─── Animations ────────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ─── Responsive ────────────────────────────────────────────────── */
